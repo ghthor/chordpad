@@ -57,18 +57,18 @@ func autoSelectInput() (*evdev.InputDevice, error) {
 // that reads input events and sends them on a channel. If an error
 // is encountered during reading, the error will be  stored in the
 // structure, the channel will be closed and the go routine will exit.
-type ChordInputDevice struct {
+type InputDevice struct {
 	*evdev.InputDevice
 	err error
 }
 
 // Err returns any error that was encountered while reading events
 // from the provided evdev.InputDevice.
-func (d ChordInputDevice) Err() error { return d.err }
+func (d InputDevice) Err() error { return d.err }
 
 // ReadEvents is used to start a go routine that reads events
 // from the evdev InputDevice sends them on the returned channel.
-func (dev *ChordInputDevice) ReadEvents(ctx context.Context) <-chan *evdev.InputEvent {
+func (dev *InputDevice) ReadEvents(ctx context.Context) <-chan *evdev.InputEvent {
 	dev.err = nil
 
 	output := make(chan *evdev.InputEvent)
@@ -193,7 +193,7 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	inputDev := ChordInputDevice{InputDevice: pad}
+	inputDev := InputDevice{InputDevice: pad}
 	inputEvents := inputDev.ReadEvents(ctx)
 	keyEvents := ChordQuick(ChordInputMappingDefaults, ChordOutputMappingDefaults)(ctx, inputEvents)
 
