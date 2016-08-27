@@ -15,6 +15,7 @@ import (
 // button associated to an input device.
 type Chord uint
 
+// ChordBtn0 ... are used as bitflags, mapped to buttons on an input device.
 const (
 	ChordBtn0 Chord = 1 << iota
 	ChordBtn1
@@ -39,6 +40,7 @@ type ChordInputMapping map[uint16]Chord
 // will output to the computer.
 type ChordOutputMapping map[Chord]int
 
+// ErrNoValidInputDevices is returned when no valid evdev input devices are found
 var ErrNoValidInputDevices = errors.New("no valid evdev input devices to use for chording")
 
 // autoSelectInput will select the first valid evdev device for use as a chording input source.
@@ -55,11 +57,14 @@ func autoSelectInput() (*evdev.InputDevice, error) {
 	return inputs[0], nil
 }
 
+// InputEvents is a read only stream of evdev.InputEvent's. The
+// stream allows for mapping the InputEvents into a stream of
+// OutputEvents.
 type InputEvents <-chan *evdev.InputEvent
 
 // An InputEventTransformer is used to process of stream of
-// evdev.InputEvents into the actual InputEvents that will sent
-// to a virtual input device.
+// evdev.InputEvents into the actual OutputEvents that can be
+// sent to a virtual uinput device.
 type InputEventTransformer func(context.Context, <-chan *evdev.InputEvent) <-chan OutputEvent
 
 // MapIntoKeyEvents is used to process a stream of input events
@@ -83,6 +88,8 @@ type InputStream struct {
 // from the provided evdev.InputDevice.
 func (stream InputStream) Err() error { return stream.err }
 
+// ErrStreamClosedByContext is returned when a stream generator
+// is closed by it's parent context being completed.
 var ErrStreamClosedByContext = errors.New("input event stream context completed")
 
 // ReadEvents is used to start a go routine that reads events
@@ -122,6 +129,7 @@ func (stream *InputStream) ReadEvents(ctx context.Context) InputEvents {
 	return output
 }
 
+// An OutputEvent is used to send virtual input events using a uinput device.
 type OutputEvent interface {
 	OutputTo(*uinput.VKeyboard) error
 }
@@ -139,8 +147,7 @@ func (key singleKeyPress) OutputTo(vk *uinput.VKeyboard) error {
 	return vk.SendKeyRelease(int(key))
 }
 
-// A Device consumes InputEvents. Sometimes the consumption of
-// an InputEvent will produce and OutputEvent.
+// A Device will transform InputEvents into output events.
 type Device interface {
 	ApplyEvent(*evdev.InputEvent) OutputEvent
 }
@@ -215,6 +222,7 @@ func (dev *chordDevice) ApplyEvent(e *evdev.InputEvent) OutputEvent {
 	return nil
 }
 
+// EnableDevice is used to turn a Device into an InputEventTransformer.
 func EnableDevice(dev Device) InputEventTransformer {
 	return func(ctx context.Context, input <-chan *evdev.InputEvent) <-chan OutputEvent {
 		output := make(chan OutputEvent)
