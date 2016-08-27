@@ -52,43 +52,43 @@ func autoSelectInput() (*evdev.InputDevice, error) {
 	return inputs[0], nil
 }
 
-// A InputDevice wraps an evdev input device to provide
+// An InputStream wraps an evdev input device to provide
 // the deferred error handling pattern. A Go Routine can be started
 // that reads input events and sends them on a channel. If an error
 // is encountered during reading, the error will be  stored in the
 // structure, the channel will be closed and the go routine will exit.
-type InputDevice struct {
+type InputStream struct {
 	*evdev.InputDevice
 	err error
 }
 
 // Err returns any error that was encountered while reading events
 // from the provided evdev.InputDevice.
-func (d InputDevice) Err() error { return d.err }
+func (s InputStream) Err() error { return s.err }
 
 var ErrStreamClosedByContext = errors.New("input event stream context completed")
 
 // ReadEvents is used to start a go routine that reads events
 // from the evdev InputDevice sends them on the returned channel.
-func (dev *InputDevice) ReadEvents(ctx context.Context) <-chan *evdev.InputEvent {
-	dev.err = nil
+func (stream *InputStream) ReadEvents(ctx context.Context) <-chan *evdev.InputEvent {
+	stream.err = nil
 
 	output := make(chan *evdev.InputEvent)
 
 	go func() {
 		<-ctx.Done()
-		dev.err = ErrStreamClosedByContext
-		dev.InputDevice.File.Close()
+		stream.err = ErrStreamClosedByContext
+		stream.InputDevice.File.Close()
 	}()
 
 	go func(output chan<- *evdev.InputEvent) {
 		defer close(output)
 
 		for {
-			ev, err := dev.InputDevice.ReadOne()
+			ev, err := stream.InputDevice.ReadOne()
 			if err != nil {
-				if dev.err != ErrStreamClosedByContext {
-					dev.err = err
+				if stream.err != ErrStreamClosedByContext {
+					stream.err = err
 				}
 				return
 			}
@@ -96,7 +96,7 @@ func (dev *InputDevice) ReadEvents(ctx context.Context) <-chan *evdev.InputEvent
 			select {
 			case output <- ev:
 			case <-ctx.Done():
-				dev.err = ErrStreamClosedByContext
+				stream.err = ErrStreamClosedByContext
 				return
 			}
 		}
@@ -195,8 +195,8 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	inputDev := InputDevice{InputDevice: pad}
-	inputEvents := inputDev.ReadEvents(ctx)
+	inputStream := InputStream{InputDevice: pad}
+	inputEvents := inputStream.ReadEvents(ctx)
 	keyEvents := ChordQuick(ChordInputMappingDefaults, ChordOutputMappingDefaults)(ctx, inputEvents)
 
 	for key := range keyEvents {
@@ -219,7 +219,7 @@ func main() {
 		}
 	}
 
-	if inputDev.Err != nil {
-		log.Fatal(inputDev.Err)
+	if inputStream.Err != nil {
+		log.Fatal(inputStream.Err)
 	}
 }
