@@ -78,7 +78,7 @@ type InputStream struct {
 
 // Err returns any error that was encountered while reading events
 // from the provided evdev.InputDevice.
-func (s InputStream) Err() error { return s.err }
+func (stream InputStream) Err() error { return stream.err }
 
 var ErrStreamClosedByContext = errors.New("input event stream context completed")
 
