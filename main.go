@@ -52,6 +52,20 @@ func autoSelectInput() (*evdev.InputDevice, error) {
 	return inputs[0], nil
 }
 
+type InputEvents <-chan *evdev.InputEvent
+
+// An InputEventTransformer is used to process of stream of
+// evdev.InputEvents into the actual InputEvents that will sent
+// to a virtual input device.
+type InputEventTransformer func(context.Context, <-chan *evdev.InputEvent) <-chan int
+
+// MapIntoKeyEvents is used to process a stream of input events
+// into a output of InputEvents that can be sent to a virtual input
+// device.
+func (stream InputEvents) MapIntoKeyEvents(ctx context.Context, transform InputEventTransformer) <-chan int {
+	return transform(ctx, stream)
+}
+
 // An InputStream wraps an evdev input device to provide
 // the deferred error handling pattern. A Go Routine can be started
 // that reads input events and sends them on a channel. If an error
@@ -70,7 +84,7 @@ var ErrStreamClosedByContext = errors.New("input event stream context completed"
 
 // ReadEvents is used to start a go routine that reads events
 // from the evdev InputDevice sends them on the returned channel.
-func (stream *InputStream) ReadEvents(ctx context.Context) <-chan *evdev.InputEvent {
+func (stream *InputStream) ReadEvents(ctx context.Context) InputEvents {
 	stream.err = nil
 
 	output := make(chan *evdev.InputEvent)
@@ -104,11 +118,6 @@ func (stream *InputStream) ReadEvents(ctx context.Context) <-chan *evdev.InputEv
 
 	return output
 }
-
-// An InputEventTransformer is used to process of stream of
-// evdev.InputEvents into the actual InputEvents that will sent
-// to a virtual input device.
-type InputEventTransformer func(context.Context, <-chan *evdev.InputEvent) <-chan int
 
 // ChordQuick allows you to hold keys down in between chord presses.
 // A key event is output when a key is released and a chord has
@@ -196,8 +205,9 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	inputStream := InputStream{InputDevice: pad}
-	inputEvents := inputStream.ReadEvents(ctx)
-	keyEvents := ChordQuick(ChordInputMappingDefaults, ChordOutputMappingDefaults)(ctx, inputEvents)
+	keyEvents := inputStream.
+		ReadEvents(ctx).
+		MapIntoKeyEvents(ctx, ChordQuick(ChordInputMappingDefaults, ChordOutputMappingDefaults))
 
 	for key := range keyEvents {
 		if key == 0 {
