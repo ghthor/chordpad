@@ -219,7 +219,7 @@ func main() {
 		}
 	}
 
-	if inputStream.Err != nil {
-		log.Fatal(inputStream.Err)
+	if inputStream.Err() != nil {
+		log.Fatal(inputStream.Err())
 	}
 }
