@@ -10,6 +10,9 @@ import (
 	evdev "github.com/gvalkov/golang-evdev"
 )
 
+// A Chord is used to store a bitfield of button states. Each
+// index in the the bitfield represents the on/off state of a
+// button associated to an input device.
 type Chord uint
 
 const (
