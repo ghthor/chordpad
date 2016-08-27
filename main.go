@@ -66,6 +66,8 @@ type InputDevice struct {
 // from the provided evdev.InputDevice.
 func (d InputDevice) Err() error { return d.err }
 
+var ErrStreamClosedByContext = errors.New("input event stream context completed")
+
 // ReadEvents is used to start a go routine that reads events
 // from the evdev InputDevice sends them on the returned channel.
 func (dev *InputDevice) ReadEvents(ctx context.Context) <-chan *evdev.InputEvent {
@@ -75,10 +77,8 @@ func (dev *InputDevice) ReadEvents(ctx context.Context) <-chan *evdev.InputEvent
 
 	go func() {
 		<-ctx.Done()
-		if ctx.Err() == context.Canceled {
-			log.Println("context canceled, closing input device")
-			dev.InputDevice.File.Close()
-		}
+		dev.err = ErrStreamClosedByContext
+		dev.InputDevice.File.Close()
 	}()
 
 	go func(output chan<- *evdev.InputEvent) {
@@ -87,14 +87,16 @@ func (dev *InputDevice) ReadEvents(ctx context.Context) <-chan *evdev.InputEvent
 		for {
 			ev, err := dev.InputDevice.ReadOne()
 			if err != nil {
-				dev.err = err
+				if dev.err != ErrStreamClosedByContext {
+					dev.err = err
+				}
 				return
 			}
 
 			select {
 			case output <- ev:
 			case <-ctx.Done():
-				dev.err = ctx.Err()
+				dev.err = ErrStreamClosedByContext
 				return
 			}
 		}
