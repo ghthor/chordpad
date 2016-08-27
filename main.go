@@ -57,12 +57,12 @@ type InputEvents <-chan *evdev.InputEvent
 // An InputEventTransformer is used to process of stream of
 // evdev.InputEvents into the actual InputEvents that will sent
 // to a virtual input device.
-type InputEventTransformer func(context.Context, <-chan *evdev.InputEvent) <-chan int
+type InputEventTransformer func(context.Context, <-chan *evdev.InputEvent) <-chan OutputEvent
 
 // MapIntoKeyEvents is used to process a stream of input events
 // into a output of InputEvents that can be sent to a virtual input
 // device.
-func (stream InputEvents) MapIntoKeyEvents(ctx context.Context, transform InputEventTransformer) <-chan int {
+func (stream InputEvents) MapIntoKeyEvents(ctx context.Context, transform InputEventTransformer) <-chan OutputEvent {
 	return transform(ctx, stream)
 }
 
@@ -119,58 +119,113 @@ func (stream *InputStream) ReadEvents(ctx context.Context) InputEvents {
 	return output
 }
 
-// ChordQuick allows you to hold keys down in between chord presses.
-// A key event is output when a key is released and a chord has
-// been played. (TODO explain the mechanics better)
-func ChordQuick(inputConfig ChordInputMapping, outputConfig ChordOutputMapping) InputEventTransformer {
-	return func(ctx context.Context, input <-chan *evdev.InputEvent) <-chan int {
-		output := make(chan int)
+type OutputEvent interface {
+	OutputTo(*uinput.VKeyboard) error
+}
 
-		go func(output chan<- int) {
+type singleKeyPress int
+
+func (key singleKeyPress) OutputTo(vk *uinput.VKeyboard) error {
+	err := vk.SendKeyPress(int(key))
+	if err != nil {
+		return err
+	}
+
+	time.Sleep(50 * time.Millisecond)
+
+	return vk.SendKeyRelease(int(key))
+}
+
+// A Device consumes InputEvents. Sometimes the consumption of
+// an InputEvent will produce and OutputEvent.
+type Device interface {
+	ApplyEvent(*evdev.InputEvent) OutputEvent
+}
+
+type chordDevice struct {
+	inputConfig  ChordInputMapping
+	outputConfig ChordOutputMapping
+
+	state chordState
+}
+
+type chordState struct {
+	// State of all chord keys
+	keys Chord
+
+	// Current chord being keyed
+	build Chord
+
+	// Chord that's being played
+	trigger Chord
+}
+
+func (state chordState) keyDown(btn Chord) chordState {
+	state.keys |= btn
+	state.build |= state.keys
+	state.trigger = 0
+	return state
+}
+
+func (state chordState) keyUp(btn Chord) chordState {
+	state.keys ^= btn
+	state.trigger = state.build
+	state.build = 0
+	return state
+}
+
+func (dev *chordDevice) ApplyEvent(e *evdev.InputEvent) OutputEvent {
+	var chordBtn Chord
+
+	switch e.Type {
+	default:
+		return nil
+
+	case evdev.EV_KEY:
+	}
+
+	ke := evdev.NewKeyEvent(e)
+	chordBtn = dev.inputConfig[ke.Scancode]
+	if chordBtn == 0 {
+		log.Println("unbound input button")
+		return nil
+	}
+
+	switch ke.State {
+	case evdev.KeyDown:
+		dev.state = dev.state.keyDown(chordBtn)
+	case evdev.KeyUp:
+		dev.state = dev.state.keyUp(chordBtn)
+	default:
+		return nil
+	}
+
+	if dev.state.trigger == 0 {
+		return nil
+	}
+
+	if key, isBound := dev.outputConfig[dev.state.trigger]; isBound {
+		return singleKeyPress(key)
+	}
+
+	log.Println("unbound chord", dev.state.trigger)
+	return nil
+}
+
+func EnableDevice(dev Device) InputEventTransformer {
+	return func(ctx context.Context, input <-chan *evdev.InputEvent) <-chan OutputEvent {
+		output := make(chan OutputEvent)
+
+		go func(output chan<- OutputEvent) {
 			defer close(output)
 
-			// Stores current state of each key attached to chording
-			var keys Chord
-
-			// Stores the current chord being built that is unsent
-			var chord Chord
-
 			for ev := range input {
-				switch ev.Type {
-				case evdev.EV_KEY:
-					ke := evdev.NewKeyEvent(ev)
-
-					switch ke.State {
-					case evdev.KeyDown:
-						// log.Printf("%s %d (0x%x) KeyDown\n", evdev.BTN[int(ke.Scancode)], ke.Scancode, ke.Scancode)
-						keys |= inputConfig[ke.Scancode]
-						chord |= keys
-
-					case evdev.KeyUp:
-						// log.Printf("%s %d (0x%x) KeyUp\n", evdev.BTN[int(ke.Scancode)], ke.Scancode, ke.Scancode)
-						btn := inputConfig[ke.Scancode]
-						keys ^= btn
-
-						if chord == 0 {
-							continue
-						}
-
-						if key, isBound := outputConfig[chord]; isBound {
-							select {
-							case output <- key:
-							case <-ctx.Done():
-								return
-							}
-						} else {
-							log.Println("unbound chord", chord)
-						}
-
-						chord = 0
-
-					default:
+				if ev := dev.ApplyEvent(ev); ev != nil {
+					select {
+					case output <- ev:
+					case <-ctx.Done():
+						return
 					}
-
-				default:
 				}
 			}
 
@@ -205,25 +260,18 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	inputStream := InputStream{InputDevice: pad}
+	chordDev := EnableDevice(&chordDevice{ChordInputMappingDefaults, ChordOutputMappingDefaults, chordState{}})
 	keyEvents := inputStream.
 		ReadEvents(ctx).
-		MapIntoKeyEvents(ctx, ChordQuick(ChordInputMappingDefaults, ChordOutputMappingDefaults))
+		MapIntoKeyEvents(ctx, chordDev)
 
-	for key := range keyEvents {
-		if key == 0 {
+	for e := range keyEvents {
+		if e == nil {
 			continue
 		}
 
-		err := vk.SendKeyPress(key)
-		if err != nil {
-			cancel()
-			break
-		}
-
-		time.Sleep(50 * time.Millisecond)
-
-		err = vk.SendKeyRelease(key)
-		if err != nil {
+		if err := e.OutputTo(&vk); err != nil {
+			log.Println(err)
 			cancel()
 			break
 		}
