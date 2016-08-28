@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/cenk/backoff"
+	evdev "github.com/ghthor/golang-evdev"
 	"github.com/ghthor/uinput"
-	evdev "github.com/gvalkov/golang-evdev"
 )
 
 // A Chord is used to store a bitfield of button states. Each

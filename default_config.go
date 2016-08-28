@@ -1,8 +1,8 @@
 package main
 
 import (
+	evdev "github.com/ghthor/golang-evdev"
 	"github.com/ghthor/uinput"
-	evdev "github.com/gvalkov/golang-evdev"
 )
 
 var ChordInputMappingDefaults = ChordInputMapping{
