@@ -275,6 +275,20 @@ func EnableDevice(dev Device) InputEventTransformer {
 	}
 }
 
+func SendOutputEvents(vk *uinput.VKeyboard, events <-chan OutputEvent) error {
+	for e := range events {
+		if e == nil {
+			continue
+		}
+
+		if err := e.OutputTo(vk); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func main() {
 	// TODO: Provide flag to specify the evdev device used to produce chords
 	// TODO: Enable using multiple evdev devices to power chord production
@@ -282,6 +296,7 @@ func main() {
 	// TODO: Provide flag for a config file path
 	// TODO: Support configuration file
 
+searchForInputDevice:
 	log.Println("auto selecting chord input device")
 	var inputDev *evdev.InputDevice
 
@@ -294,16 +309,15 @@ func main() {
 	log.Println("input device found")
 	log.Println(inputDev)
 
-	log.Println("creating virtual keyboard output device")
+	log.Println("creating uinput virtual keyboard output device")
 	vk := uinput.VKeyboard{Name: "Test Chordpad Device"}
 	err = vk.Create("/dev/uinput")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	defer vk.Close()
-
-	ctx, cancel := context.WithCancel(context.Background())
+	log.Println("linking evdev input device to uinput virtual keyboard")
+	ctx, cancelCtx := context.WithCancel(context.Background())
 
 	inputStream := InputStream{InputDevice: inputDev}
 	chordDev := EnableDevice(&chordDevice{ChordInputMappingDefaults, ChordOutputMappingDefaults, chordState{}})
@@ -311,19 +325,22 @@ func main() {
 		ReadEvents(ctx).
 		MapIntoKeyEvents(ctx, chordDev)
 
-	for e := range keyEvents {
-		if e == nil {
-			continue
-		}
+	err = SendOutputEvents(&vk, keyEvents)
+	if err != nil {
+		log.Println(err)
+	}
 
-		if err := e.OutputTo(&vk); err != nil {
-			log.Println(err)
-			cancel()
-			break
-		}
+	cancelCtx()
+
+	log.Println("closing uinput virtual keyboard")
+	err = vk.Close()
+	if err != nil {
+		log.Println(err)
 	}
 
 	if inputStream.Err() != nil {
 		log.Println(inputStream.Err())
 	}
+
+	goto searchForInputDevice
 }
