@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/cenk/backoff"
 	"github.com/ghthor/uinput"
 	evdev "github.com/gvalkov/golang-evdev"
 )
@@ -55,6 +56,34 @@ func autoSelectInput() (*evdev.InputDevice, error) {
 	}
 
 	return inputs[0], nil
+}
+
+func autoSelectInputOp(output **evdev.InputDevice) func() error {
+	return func() error {
+		pad, err := autoSelectInput()
+		switch err {
+		case ErrNoValidInputDevices:
+			log.Println(ErrNoValidInputDevices)
+			return ErrNoValidInputDevices
+
+		default:
+			log.Fatal(err)
+
+		case nil:
+		}
+
+		*output = pad
+		return nil
+	}
+}
+
+var autoSelectInputBackoff = backoff.ExponentialBackOff{
+	InitialInterval:     500 * time.Millisecond,
+	RandomizationFactor: 0.5,
+	Multiplier:          1.5,
+	MaxInterval:         5 * time.Second,
+	MaxElapsedTime:      0,
+	Clock:               backoff.SystemClock,
 }
 
 // InputEvents is a read only stream of evdev.InputEvent's. The
@@ -254,10 +283,16 @@ func main() {
 	// TODO: Support configuration file
 
 	log.Println("auto selecting chord input device")
-	pad, err := autoSelectInput()
+	var inputDev *evdev.InputDevice
+
+	autoSelectInputBackoff.Reset()
+	err := backoff.Retry(autoSelectInputOp(&inputDev), &autoSelectInputBackoff)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	log.Println("input device found")
+	log.Println(inputDev)
 
 	log.Println("creating virtual keyboard output device")
 	vk := uinput.VKeyboard{Name: "Test Chordpad Device"}
@@ -270,7 +305,7 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	inputStream := InputStream{InputDevice: pad}
+	inputStream := InputStream{InputDevice: inputDev}
 	chordDev := EnableDevice(&chordDevice{ChordInputMappingDefaults, ChordOutputMappingDefaults, chordState{}})
 	keyEvents := inputStream.
 		ReadEvents(ctx).
@@ -289,6 +324,6 @@ func main() {
 	}
 
 	if inputStream.Err() != nil {
-		log.Fatal(inputStream.Err())
+		log.Println(inputStream.Err())
 	}
 }
