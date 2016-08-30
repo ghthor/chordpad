@@ -275,6 +275,8 @@ func EnableDevice(dev Device) InputEventTransformer {
 	}
 }
 
+// SendOutputEvents reads all OutputEvents from provided channel and
+// applies/outputs them to the provided uinput device.
 func SendOutputEvents(vk *uinput.VKeyboard, events <-chan OutputEvent) error {
 	for e := range events {
 		if e == nil {
