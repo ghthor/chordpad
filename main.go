@@ -289,6 +289,14 @@ func SendOutputEvents(vk *uinput.VKeyboard, events <-chan OutputEvent) error {
 	return nil
 }
 
+// Must is used to specify any error returned as a fatal error
+// that cannot be recovered from.
+func Must(err error) {
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
 func main() {
 	// TODO: Provide flag to specify the evdev device used to produce chords
 	// TODO: Enable using multiple evdev devices to power chord production
@@ -301,20 +309,14 @@ searchForInputDevice:
 	var inputDev *evdev.InputDevice
 
 	autoSelectInputBackoff.Reset()
-	err := backoff.Retry(autoSelectInputOp(&inputDev), &autoSelectInputBackoff)
-	if err != nil {
-		log.Fatal(err)
-	}
+	Must(backoff.Retry(autoSelectInputOp(&inputDev), &autoSelectInputBackoff))
 
 	log.Println("input device found")
 	log.Println(inputDev)
 
 	log.Println("creating uinput virtual keyboard output device")
 	vk := uinput.VKeyboard{Name: "Test Chordpad Device"}
-	err = vk.Create("/dev/uinput")
-	if err != nil {
-		log.Fatal(err)
-	}
+	Must(vk.Create("/dev/uinput"))
 
 	log.Println("linking evdev input device to uinput virtual keyboard")
 	ctx, cancelCtx := context.WithCancel(context.Background())
@@ -325,7 +327,7 @@ searchForInputDevice:
 		ReadEvents(ctx).
 		MapIntoKeyEvents(ctx, chordDev)
 
-	err = SendOutputEvents(&vk, keyEvents)
+	err := SendOutputEvents(&vk, keyEvents)
 	if err != nil {
 		log.Println(err)
 	}
