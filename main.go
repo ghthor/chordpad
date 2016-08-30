@@ -297,6 +297,20 @@ func Must(err error) {
 	}
 }
 
+// RunDeviceStream is used to create and input => device => output stream
+// that is all linked together with a context. It will block until there is
+// some is an unrecoverable error which will be returned.
+func RunDeviceStream(ctx context.Context, input InputStream, dev Device, output uinput.VKeyboard) error {
+	ctx, cancelCtx := context.WithCancel(ctx)
+	defer cancelCtx()
+
+	events := input.
+		ReadEvents(ctx).
+		MapIntoKeyEvents(ctx, EnableDevice(dev))
+
+	return SendOutputEvents(&output, events)
+}
+
 func main() {
 	// TODO: Provide flag to specify the evdev device used to produce chords
 	// TODO: Enable using multiple evdev devices to power chord production
@@ -319,20 +333,16 @@ searchForInputDevice:
 	Must(vk.Create("/dev/uinput"))
 
 	log.Println("linking evdev input device to uinput virtual keyboard")
-	ctx, cancelCtx := context.WithCancel(context.Background())
 
 	inputStream := InputStream{InputDevice: inputDev}
-	chordDev := EnableDevice(&chordDevice{ChordInputMappingDefaults, ChordOutputMappingDefaults, chordState{}})
-	keyEvents := inputStream.
-		ReadEvents(ctx).
-		MapIntoKeyEvents(ctx, chordDev)
-
-	err := SendOutputEvents(&vk, keyEvents)
+	err := RunDeviceStream(
+		context.Background(),
+		inputStream,
+		&chordDevice{ChordInputMappingDefaults, ChordOutputMappingDefaults, chordState{}},
+		vk)
 	if err != nil {
 		log.Println(err)
 	}
-
-	cancelCtx()
 
 	log.Println("closing uinput virtual keyboard")
 	err = vk.Close()
