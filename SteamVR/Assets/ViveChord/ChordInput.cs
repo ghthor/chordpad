@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 using WindowsInput.Native;
@@ -10,55 +10,49 @@ public class ChordInput : MonoBehaviour
     private static Dictionary<ulong, VirtualKeyCode> ChordMap
         = new Dictionary<ulong, VirtualKeyCode>
         {
-            // Left Hand D-Pad - Movement
-            {1, VirtualKeyCode.DOWN},
-            {2, VirtualKeyCode.LEFT},
-            {3, VirtualKeyCode.HOME},
-            {4, VirtualKeyCode.RIGHT},
-            {5, VirtualKeyCode.END},
-            {6, VirtualKeyCode.UP},
-            {7, VirtualKeyCode.ESCAPE},
+            // Layout based on asetniop chording layout
+            {2+32, VirtualKeyCode.BACK },   // (<) (<)
+            {1+16, VirtualKeyCode.SPACE },  // (v) (v)
+            //{8+128, VirtualKeyCode.TAB },   // (>) (>)
 
-            // Right Hand D-Pad - Editting Movements
-            { 8, VirtualKeyCode.SPACE},
-            {16, VirtualKeyCode.BACK},
-            {32, VirtualKeyCode.TAB},
-            // Right Center
-            {56, VirtualKeyCode.RETURN},
+            // Left Hand, Home Row
+            {1, VirtualKeyCode.VK_E }, // (v) ( )
+            {2, VirtualKeyCode.VK_A }, // (<) ( )
+            {4, VirtualKeyCode.VK_S }, // (^) ( )
+            {8, VirtualKeyCode.VK_T }, // (>) ( )
 
-            // R zoneBot + (L Clockwise)
-            { 9, VirtualKeyCode.VK_A},
-            {11, VirtualKeyCode.VK_B},
-            {10, VirtualKeyCode.VK_C},
-            {14, VirtualKeyCode.VK_D},
-            {12, VirtualKeyCode.VK_E},
-            {13, VirtualKeyCode.VK_F},
-            {15, VirtualKeyCode.VK_G},
+            // Right Hand, Home Row
+            {16,  VirtualKeyCode.VK_I }, // ( ) (v)
+            {32,  VirtualKeyCode.VK_N }, // ( ) (<)
+            {64,  VirtualKeyCode.VK_P }, // ( ) (^)
+            {128, VirtualKeyCode.VK_O }, // ( ) (>)
 
-            // (R zoneBot+L) + (L Clockwise)
-            {25, VirtualKeyCode.VK_H},
-            {27, VirtualKeyCode.VK_I},
-            {26, VirtualKeyCode.VK_J},
-            {30, VirtualKeyCode.VK_K},
-            {28, VirtualKeyCode.VK_L},
-            {29, VirtualKeyCode.VK_M},
-            {31, VirtualKeyCode.VK_N},
+            {1+8,    VirtualKeyCode.VK_R }, // (v>) ( )
+            {16+32,  VirtualKeyCode.VK_H }, // ( )  (v<)
+            {2+8,    VirtualKeyCode.VK_D }, // (<>) ( )
+            {32+128, VirtualKeyCode.VK_M }, // ( )  (<>)
 
-            // (R zoneL) + (L Clockwise)
-            {17, VirtualKeyCode.VK_O},
-            {19, VirtualKeyCode.VK_P},
-            {18, VirtualKeyCode.VK_Q},
-            {22, VirtualKeyCode.VK_R},
-            {20, VirtualKeyCode.VK_S},
-            {21, VirtualKeyCode.VK_T},
-            {23, VirtualKeyCode.VK_U},
+            {1+2,    VirtualKeyCode.VK_C }, // (v<) ( )
+            {16+128, VirtualKeyCode.VK_U }, // ( )  (v>)
 
-            // (R zoneL+R) + (L Clockwise)
-            {49, VirtualKeyCode.VK_V},
-            {51, VirtualKeyCode.VK_W},
-            {50, VirtualKeyCode.VK_X},
-            {54, VirtualKeyCode.VK_Y},
-            {52, VirtualKeyCode.VK_Z},
+            {1+4,   VirtualKeyCode.VK_F }, // (v^) ( )
+            {16+64, VirtualKeyCode.VK_L }, // ( ) (v^)
+
+            {1+32, VirtualKeyCode.VK_V }, // (v) (<)
+            {16+8, VirtualKeyCode.VK_Y }, // (>) (v)
+
+            {1+128, VirtualKeyCode.VK_G }, // (v) (>)
+            {16+2,  VirtualKeyCode.VK_J }, // (<) (v)
+
+            {4+2,    VirtualKeyCode.VK_W },  // (^<) ( )
+            {4+1+16, VirtualKeyCode.VK_B },  // (^v) (v) ODD MAN OUT
+            {64+128, VirtualKeyCode.OEM_1 }, // ( ) (^>) ';:' Key
+
+            {4+8,   VirtualKeyCode.VK_X }, // (^>) ( )
+            {64+32, VirtualKeyCode.VK_K }, // ( ) (^<)
+
+            {2+128, VirtualKeyCode.VK_Q }, // (<) (>)
+            {8+32,  VirtualKeyCode.VK_Z }, // (>) (<)
         };
 
     enum ControllerHand { L, R }
@@ -111,11 +105,59 @@ public class ChordInput : MonoBehaviour
         }
     }
 
-    // TODO: Implement 3-button support
-    class TouchpadButtonMask
+    class TouchpadButtonMask4
+    {
+        private ulong S, W, N, E;
+        public ulong All { get; private set; }
+
+        public TouchpadButtonMask4(int deviceIndex)
+        {
+            S = 1ul << (0 + (deviceIndex * 4));
+            W = 1ul << (1 + (deviceIndex * 4));
+            N = 1ul << (2 + (deviceIndex * 4));
+            E = 1ul << (3 + (deviceIndex * 4));
+
+            All = S | W | N | E;
+        }
+
+        public ulong MaskFor(List<Vector2> touches)
+        {
+            if (touches.Count == 0) { return 0; }
+            if (touches.Count == 1) { return MaskFor(touches[0]); }
+
+            // TODO: Add Support for 3 & 4 Button presses
+            return MaskFor(touches[0]) | MaskFor(touches[touches.Count-1]);
+        }
+
+        public ulong MaskFor(Vector2 touch)
+        {
+            // If the location's distance from center is <= this radius then All buttons are pressed.
+            const float centerZoneRadius = 0.42F;
+            const float centerZoneRadius_sq = (centerZoneRadius * centerZoneRadius);
+
+            float touch_distance_sq = touch.sqrMagnitude;
+
+            // Pressing All
+            if (touch_distance_sq <= centerZoneRadius_sq) { return All; }
+
+            // Calculate Angle difference from pi/2. Result will be within [0-pi]
+            float theta = Mathf.Acos(touch.y / Mathf.Sqrt(touch_distance_sq));
+            const float OneForthPI   = Mathf.PI / 4;
+            const float ThreeForthPI = OneForthPI * 3;
+
+            if (theta <= OneForthPI) { return N; }
+
+            var EW = touch.x > 0 ? E : W;
+            if (theta < ThreeForthPI) { return EW; }
+
+            return S;
+        }
+    }
+
+    class TouchpadButtonMask3
     {
         // If the location's distance from center is <= this radius then All buttons are pressed.
-        const float centerZoneRadius = 0.35F;
+        const float centerZoneRadius = 0.42F;
         const float centerZoneRadius_sq = (centerZoneRadius * centerZoneRadius);
 
         // The Touchpad Circle is divided into 3 zones of equal size.
@@ -124,7 +166,7 @@ public class ChordInput : MonoBehaviour
         // A Mask for all the Touchpad ButtonID's attached the Hand
         public readonly ulong All;
 
-        public TouchpadButtonMask(int deviceIndex)
+        public TouchpadButtonMask3(int deviceIndex)
         {
             maskZoneBot = 1ul << (0 + (deviceIndex * 3));
             maskZoneL   = 1ul << (1 + (deviceIndex * 3));
@@ -190,7 +232,8 @@ public class ChordInput : MonoBehaviour
 
         // Unique set of ChordButtonID's for the Device's Hand
         //public ChordButtonID trigger { get; private set; }
-        public TouchpadButtonMask touchpad { get; private set; }
+        public List<Vector2> touches { get; private set; }
+        public TouchpadButtonMask4 touchpad { get; private set; }
 
         public SteamVR_Controller.Device node
         {
@@ -215,7 +258,8 @@ public class ChordInput : MonoBehaviour
             //trigger = (hand == ControllerHand.L ? ChordButtonID.Trigger_0 : ChordButtonID.Trigger_1);
 
             // TODO: Factor out index calculation
-            touchpad = new TouchpadButtonMask((int)hand);
+            touches = new List<Vector2>();
+            touchpad = new TouchpadButtonMask4((int)hand);
 
             Debug.Log("Mask Config: " + mask.StringFor(mask.All));
             Debug.Log(string.Join("\n", new[] {
@@ -273,6 +317,11 @@ public class ChordInput : MonoBehaviour
             bool touchpadDown = node.GetPress(SteamVR_Controller.ButtonMask.Touchpad)
                 || node.GetPressDown(SteamVR_Controller.ButtonMask.Touchpad);
 
+            if (touchpadDown)
+            {
+                device.touches.Add(node.GetAxis(Valve.VR.EVRButtonId.k_EButton_SteamVR_Touchpad));
+            }
+
             // ### Update Trigger State
             //chordKeys = triggerDown ?
             //    chordKeys | device.mask.For(device.trigger) :
@@ -281,7 +330,7 @@ public class ChordInput : MonoBehaviour
             // ### Update Touchpad
             chordKeys &= ~device.touchpad.All;
             chordKeys = touchpadDown ?
-                chordKeys | device.touchpad.MaskFor(node.GetAxis(Valve.VR.EVRButtonId.k_EButton_SteamVR_Touchpad)) :
+                chordKeys | device.touchpad.MaskFor(device.touches) :
                 chordKeys;
 
             FixedUpdate();
@@ -327,6 +376,8 @@ public class ChordInput : MonoBehaviour
 
             if (touchpadWasDownPrev && !touchpadIsDownNow)
             {
+                // TODO: Fix this state manipulation
+                device.touches.Clear();
                 events.Add(ChordMachine.InputEvent.TouchpadReleased);
             }
 
