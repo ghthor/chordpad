@@ -3,18 +3,54 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io"
 	"log"
 	"time"
 
-	"github.com/cenk/backoff"
-	evdev "github.com/ghthor/golang-evdev"
 	"github.com/ghthor/uinput"
 )
+
+// A Button is used to map multiple input sources into a shared namespace.
+type Button int
+
+// ButtonState is an Up/Down value for a given button
+type ButtonState int
+
+const (
+	ButtonUp ButtonState = iota
+	ButtonDown
+)
+
+// A ButtonEvent is used to abstract over potentially different event
+// type sources(evdev,dx_input,etc) into the cross platform, shared
+// namespace used by a chord device definition to produce OutputEvents.
+type ButtonEvent interface {
+	Button() Button
+	State() ButtonState
+}
+
+type InputDevice interface {
+	ReadEvent() (ButtonEvent, error)
+
+	io.Closer
+}
+
+type UnboundInputEvent struct {
+	// TODO: Reduce generalization into a common pattern
+	Description string
+}
+
+func (e UnboundInputEvent) Error() string {
+	return fmt.Sprint("unbound input", e.Description)
+}
+
+type InputConfig map[int]Button
 
 // A Chord is used to store a bitfield of button states. Each
 // index in the the bitfield represents the on/off state of a
 // button associated to an input device.
-type Chord uint
+type Chord uint32
 
 // ChordBtn0 ... are used as bitflags, mapped to buttons on an input device.
 const (
@@ -31,115 +67,56 @@ const (
 	ChordBtn10
 )
 
-// A ChordInputMapping contains a map of evdev produced input scan codes
-// into a Chord value. This is used to configure the buttons from the evdev
-// input device map into a chorded value.
-type ChordInputMapping map[uint16]Chord
+type ChordInputMapping map[Button]Chord
 
 // A ChordOutputMapping will contain a map of chord values to the key
 // code they trigger. This is used to configure what key a specific chord
 // will output to the computer.
 type ChordOutputMapping map[Chord]int
 
-// ErrNoValidInputDevices is returned when no valid evdev input devices are found
-var ErrNoValidInputDevices = errors.New("no valid evdev input devices to use for chording")
+type ButtonEvents <-chan ButtonEvent
 
-// autoSelectInput will select the first valid evdev device for use as a chording input source.
-func autoSelectInput() (*evdev.InputDevice, error) {
-	inputs, err := evdev.ListInputDevices("/dev/input/event*")
-	if err != nil {
-		return nil, err
-	}
+type ButtonEventProcess func(context.Context, <-chan ButtonEvent) <-chan OutputEvent
 
-	if len(inputs) < 1 {
-		return nil, ErrNoValidInputDevices
-	}
-
-	return inputs[0], nil
+func (stream ButtonEvents) MapIntoKeyEvents(ctx context.Context, start ButtonEventProcess) <-chan OutputEvent {
+	return start(ctx, stream)
 }
 
-func autoSelectInputOp(output **evdev.InputDevice) func() error {
-	return func() error {
-		pad, err := autoSelectInput()
-		switch err {
-		case ErrNoValidInputDevices:
-			log.Println(ErrNoValidInputDevices)
-			return ErrNoValidInputDevices
-
-		default:
-			log.Fatal(err)
-
-		case nil:
-		}
-
-		*output = pad
-		return nil
-	}
-}
-
-var autoSelectInputBackoff = backoff.ExponentialBackOff{
-	InitialInterval:     500 * time.Millisecond,
-	RandomizationFactor: 0.5,
-	Multiplier:          1.5,
-	MaxInterval:         5 * time.Second,
-	MaxElapsedTime:      0,
-	Clock:               backoff.SystemClock,
-}
-
-// InputEvents is a read only stream of evdev.InputEvent's. The
-// stream allows for mapping the InputEvents into a stream of
-// OutputEvents.
-type InputEvents <-chan *evdev.InputEvent
-
-// An InputEventTransformer is used to process of stream of
-// evdev.InputEvents into the actual OutputEvents that can be
-// sent to a virtual uinput device.
-type InputEventTransformer func(context.Context, <-chan *evdev.InputEvent) <-chan OutputEvent
-
-// MapIntoKeyEvents is used to process a stream of input events
-// into a output of InputEvents that can be sent to a virtual input
-// device.
-func (stream InputEvents) MapIntoKeyEvents(ctx context.Context, transform InputEventTransformer) <-chan OutputEvent {
-	return transform(ctx, stream)
-}
-
-// An InputStream wraps an evdev input device to provide
-// the deferred error handling pattern. A Go Routine can be started
-// that reads input events and sends them on a channel. If an error
-// is encountered during reading, the error will be  stored in the
-// structure, the channel will be closed and the go routine will exit.
 type InputStream struct {
-	*evdev.InputDevice
+	InputDevice
 	err error
 }
 
-// Err returns any error that was encountered while reading events
-// from the provided evdev.InputDevice.
 func (stream InputStream) Err() error { return stream.err }
 
 // ErrStreamClosedByContext is returned when a stream generator
 // is closed by it's parent context being completed.
 var ErrStreamClosedByContext = errors.New("input event stream context completed")
 
-// ReadEvents is used to start a go routine that reads events
-// from the evdev InputDevice sends them on the returned channel.
-func (stream *InputStream) ReadEvents(ctx context.Context) InputEvents {
+// ReadEvents starts a process reading events from an InputDevice
+// and sending those events down stream via a returned channel.
+func (stream *InputStream) ReadEvents(ctx context.Context) ButtonEvents {
 	stream.err = nil
 
-	output := make(chan *evdev.InputEvent)
+	output := make(chan ButtonEvent)
 
 	go func() {
 		<-ctx.Done()
 		stream.err = ErrStreamClosedByContext
-		stream.InputDevice.File.Close()
+		stream.InputDevice.Close()
 	}()
 
-	go func(output chan<- *evdev.InputEvent) {
+	go func(output chan<- ButtonEvent) {
 		defer close(output)
 
 		for {
-			ev, err := stream.InputDevice.ReadOne()
+			ev, err := stream.InputDevice.ReadEvent()
 			if err != nil {
+				if err, isUnbound := err.(UnboundInputEvent); isUnbound {
+					log.Println(err)
+					continue
+				}
+
 				if stream.err != ErrStreamClosedByContext {
 					stream.err = err
 				}
@@ -178,7 +155,7 @@ func (key singleKeyPress) OutputTo(vk *uinput.VKeyboard) error {
 
 // A Device will transform InputEvents into output events.
 type Device interface {
-	ApplyEvent(*evdev.InputEvent) OutputEvent
+	ApplyEvent(ButtonEvent) OutputEvent
 }
 
 type chordDevice struct {
@@ -213,27 +190,17 @@ func (state chordState) keyUp(btn Chord) chordState {
 	return state
 }
 
-func (dev *chordDevice) ApplyEvent(e *evdev.InputEvent) OutputEvent {
-	var chordBtn Chord
-
-	switch e.Type {
-	default:
-		return nil
-
-	case evdev.EV_KEY:
-	}
-
-	ke := evdev.NewKeyEvent(e)
-	chordBtn = dev.inputConfig[ke.Scancode]
+func (dev *chordDevice) ApplyEvent(e ButtonEvent) OutputEvent {
+	chordBtn := dev.inputConfig[e.Button()]
 	if chordBtn == 0 {
 		log.Println("unbound input button")
 		return nil
 	}
 
-	switch ke.State {
-	case evdev.KeyDown:
+	switch e.State() {
+	case ButtonDown:
 		dev.state = dev.state.keyDown(chordBtn)
-	case evdev.KeyUp:
+	case ButtonUp:
 		dev.state = dev.state.keyUp(chordBtn)
 	default:
 		return nil
@@ -251,9 +218,8 @@ func (dev *chordDevice) ApplyEvent(e *evdev.InputEvent) OutputEvent {
 	return nil
 }
 
-// EnableDevice is used to turn a Device into an InputEventTransformer.
-func EnableDevice(dev Device) InputEventTransformer {
-	return func(ctx context.Context, input <-chan *evdev.InputEvent) <-chan OutputEvent {
+func EnableDevice(dev Device) ButtonEventProcess {
+	return func(ctx context.Context, input <-chan ButtonEvent) <-chan OutputEvent {
 		output := make(chan OutputEvent)
 
 		go func(output chan<- OutputEvent) {
@@ -322,13 +288,11 @@ func main() {
 
 searchForInputDevice:
 	log.Println("auto selecting chord input device")
-	var inputDev *evdev.InputDevice
-
-	autoSelectInputBackoff.Reset()
-	Must(backoff.Retry(autoSelectInputOp(&inputDev), &autoSelectInputBackoff))
+	// Can trigger os.Exit()
+	dev := autoSelectEvdevDevice()
 
 	log.Println("input device found")
-	log.Println(inputDev)
+	log.Println(dev)
 
 	log.Println("creating uinput virtual keyboard output device")
 	vk := uinput.VKeyboard{Name: "Test Chordpad Device"}
@@ -336,7 +300,7 @@ searchForInputDevice:
 
 	log.Println("linking evdev input device to uinput virtual keyboard")
 
-	inputStream := InputStream{InputDevice: inputDev}
+	inputStream := InputStream{InputDevice: dev}
 	err := RunDeviceStream(
 		context.Background(),
 		inputStream,

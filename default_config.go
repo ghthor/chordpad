@@ -5,11 +5,18 @@ import (
 	"github.com/ghthor/uinput"
 )
 
+var InputConfigDefaults = InputConfig{
+	evdev.BTN_BASE4:    1,
+	evdev.BTN_TOP2:     2,
+	evdev.BTN_TOP:      3,
+	evdev.BTN_JOYSTICK: 4,
+}
+
 var ChordInputMappingDefaults = ChordInputMapping{
-	evdev.BTN_BASE4:    ChordBtn0,
-	evdev.BTN_TOP2:     ChordBtn1,
-	evdev.BTN_TOP:      ChordBtn2,
-	evdev.BTN_JOYSTICK: ChordBtn3,
+	1: ChordBtn0,
+	2: ChordBtn1,
+	3: ChordBtn2,
+	4: ChordBtn3,
 }
 
 var ChordOutputMappingDefaults = ChordOutputMapping{
