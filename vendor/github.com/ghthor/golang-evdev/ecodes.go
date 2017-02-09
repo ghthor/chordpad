@@ -1,5 +1,8 @@
-// Integer constants defined in linux/input.h can be accessed
-// directly or through the provided reverse and forward mappings:
+// -*- mode: go; -*-
+
+// Integer constants defined in linux/input.h and linux/input-event-codes.h can be accessed
+// directly as constants or through the provided reverse and forward mappings:
+
 //
 //   evdev.KEY_A  // 30
 //   evdev.ecodes["KEY_A"]  // 30
@@ -8,13 +11,64 @@
 //   evdev.EV[evdev.EV_KEY]  // "EV_KEY"
 //   evdev.ByEventType[EV_REL][0]  // "REL_X"
 //
-// Generated on: Linux 4.7.2-1-ARCH #1 SMP PREEMPT Sat Aug 20 23:02:56 CEST 2016 x86_64
+// Generated on: Linux 4.7.4-200.fc24.x86_64 #1 SMP Thu Sep 15 18:42:09 UTC 2016 x86_64
 
 package evdev
 
 import "strings"
 
 const (
+	EV_VERSION                   = 0x010001
+	ID_BUS                       = 0
+	ID_VENDOR                    = 1
+	ID_PRODUCT                   = 2
+	ID_VERSION                   = 3
+	BUS_PCI                      = 0x01
+	BUS_ISAPNP                   = 0x02
+	BUS_USB                      = 0x03
+	BUS_HIL                      = 0x04
+	BUS_BLUETOOTH                = 0x05
+	BUS_VIRTUAL                  = 0x06
+	BUS_ISA                      = 0x10
+	BUS_I8042                    = 0x11
+	BUS_XTKBD                    = 0x12
+	BUS_RS232                    = 0x13
+	BUS_GAMEPORT                 = 0x14
+	BUS_PARPORT                  = 0x15
+	BUS_AMIGA                    = 0x16
+	BUS_ADB                      = 0x17
+	BUS_I2C                      = 0x18
+	BUS_HOST                     = 0x19
+	BUS_GSC                      = 0x1A
+	BUS_ATARI                    = 0x1B
+	BUS_SPI                      = 0x1C
+	BUS_RMI                      = 0x1D
+	BUS_CEC                      = 0x1E
+	FF_STATUS_STOPPED            = 0x00
+	FF_STATUS_PLAYING            = 0x01
+	FF_STATUS_MAX                = 0x01
+	FF_RUMBLE                    = 0x50
+	FF_PERIODIC                  = 0x51
+	FF_CONSTANT                  = 0x52
+	FF_SPRING                    = 0x53
+	FF_FRICTION                  = 0x54
+	FF_DAMPER                    = 0x55
+	FF_INERTIA                   = 0x56
+	FF_RAMP                      = 0x57
+	FF_EFFECT_MIN                = FF_RUMBLE
+	FF_EFFECT_MAX                = FF_RAMP
+	FF_SQUARE                    = 0x58
+	FF_TRIANGLE                  = 0x59
+	FF_SINE                      = 0x5a
+	FF_SAW_UP                    = 0x5b
+	FF_SAW_DOWN                  = 0x5c
+	FF_CUSTOM                    = 0x5d
+	FF_WAVEFORM_MIN              = FF_SQUARE
+	FF_WAVEFORM_MAX              = FF_CUSTOM
+	FF_GAIN                      = 0x60
+	FF_AUTOCENTER                = 0x61
+	FF_MAX_EFFECTS               = FF_GAIN
+	FF_MAX                       = 0x7f
 	EV_SYN                       = 0x00
 	EV_KEY                       = 0x01
 	EV_REL                       = 0x02
@@ -28,13 +82,11 @@ const (
 	EV_PWR                       = 0x16
 	EV_FF_STATUS                 = 0x17
 	EV_MAX                       = 0x1f
-	EV_CNT                       = (EV_MAX + 1)
 	SYN_REPORT                   = 0
 	SYN_CONFIG                   = 1
 	SYN_MT_REPORT                = 2
 	SYN_DROPPED                  = 3
 	SYN_MAX                      = 0xf
-	SYN_CNT                      = (SYN_MAX + 1)
 	KEY_RESERVED                 = 0
 	KEY_ESC                      = 1
 	KEY_1                        = 2
@@ -595,7 +647,6 @@ const (
 	BTN_TRIGGER_HAPPY40          = 0x2e7
 	KEY_MIN_INTERESTING          = KEY_MUTE
 	KEY_MAX                      = 0x2ff
-	KEY_CNT                      = (KEY_MAX + 1)
 	REL_X                        = 0x00
 	REL_Y                        = 0x01
 	REL_Z                        = 0x02
@@ -607,7 +658,6 @@ const (
 	REL_WHEEL                    = 0x08
 	REL_MISC                     = 0x09
 	REL_MAX                      = 0x0f
-	REL_CNT                      = (REL_MAX + 1)
 	ABS_X                        = 0x00
 	ABS_Y                        = 0x01
 	ABS_Z                        = 0x02
@@ -650,7 +700,6 @@ const (
 	ABS_MT_TOOL_X                = 0x3c
 	ABS_MT_TOOL_Y                = 0x3d
 	ABS_MAX                      = 0x3f
-	ABS_CNT                      = (ABS_MAX + 1)
 	SW_LID                       = 0x00
 	SW_TABLET_MODE               = 0x01
 	SW_HEADPHONE_INSERT          = 0x02
@@ -669,7 +718,6 @@ const (
 	SW_MUTE_DEVICE               = 0x0e
 	SW_PEN_INSERTED              = 0x0f
 	SW_MAX                       = 0x0f
-	SW_CNT                       = (SW_MAX + 1)
 	MSC_SERIAL                   = 0x00
 	MSC_PULSELED                 = 0x01
 	MSC_GESTURE                  = 0x02
@@ -677,7 +725,6 @@ const (
 	MSC_SCAN                     = 0x04
 	MSC_TIMESTAMP                = 0x05
 	MSC_MAX                      = 0x07
-	MSC_CNT                      = (MSC_MAX + 1)
 	LED_NUML                     = 0x00
 	LED_CAPSL                    = 0x01
 	LED_SCROLLL                  = 0x02
@@ -690,19 +737,67 @@ const (
 	LED_MAIL                     = 0x09
 	LED_CHARGING                 = 0x0a
 	LED_MAX                      = 0x0f
-	LED_CNT                      = (LED_MAX + 1)
 	REP_DELAY                    = 0x00
 	REP_PERIOD                   = 0x01
 	REP_MAX                      = 0x01
-	REP_CNT                      = (REP_MAX + 1)
 	SND_CLICK                    = 0x00
 	SND_BELL                     = 0x01
 	SND_TONE                     = 0x02
 	SND_MAX                      = 0x07
-	SND_CNT                      = (SND_MAX + 1)
 )
 
 var ecodes = map[string]int{
+	"EV_VERSION":                   EV_VERSION,
+	"ID_BUS":                       ID_BUS,
+	"ID_VENDOR":                    ID_VENDOR,
+	"ID_PRODUCT":                   ID_PRODUCT,
+	"ID_VERSION":                   ID_VERSION,
+	"BUS_PCI":                      BUS_PCI,
+	"BUS_ISAPNP":                   BUS_ISAPNP,
+	"BUS_USB":                      BUS_USB,
+	"BUS_HIL":                      BUS_HIL,
+	"BUS_BLUETOOTH":                BUS_BLUETOOTH,
+	"BUS_VIRTUAL":                  BUS_VIRTUAL,
+	"BUS_ISA":                      BUS_ISA,
+	"BUS_I8042":                    BUS_I8042,
+	"BUS_XTKBD":                    BUS_XTKBD,
+	"BUS_RS232":                    BUS_RS232,
+	"BUS_GAMEPORT":                 BUS_GAMEPORT,
+	"BUS_PARPORT":                  BUS_PARPORT,
+	"BUS_AMIGA":                    BUS_AMIGA,
+	"BUS_ADB":                      BUS_ADB,
+	"BUS_I2C":                      BUS_I2C,
+	"BUS_HOST":                     BUS_HOST,
+	"BUS_GSC":                      BUS_GSC,
+	"BUS_ATARI":                    BUS_ATARI,
+	"BUS_SPI":                      BUS_SPI,
+	"BUS_RMI":                      BUS_RMI,
+	"BUS_CEC":                      BUS_CEC,
+	"FF_STATUS_STOPPED":            FF_STATUS_STOPPED,
+	"FF_STATUS_PLAYING":            FF_STATUS_PLAYING,
+	"FF_STATUS_MAX":                FF_STATUS_MAX,
+	"FF_RUMBLE":                    FF_RUMBLE,
+	"FF_PERIODIC":                  FF_PERIODIC,
+	"FF_CONSTANT":                  FF_CONSTANT,
+	"FF_SPRING":                    FF_SPRING,
+	"FF_FRICTION":                  FF_FRICTION,
+	"FF_DAMPER":                    FF_DAMPER,
+	"FF_INERTIA":                   FF_INERTIA,
+	"FF_RAMP":                      FF_RAMP,
+	"FF_EFFECT_MIN":                FF_EFFECT_MIN,
+	"FF_EFFECT_MAX":                FF_EFFECT_MAX,
+	"FF_SQUARE":                    FF_SQUARE,
+	"FF_TRIANGLE":                  FF_TRIANGLE,
+	"FF_SINE":                      FF_SINE,
+	"FF_SAW_UP":                    FF_SAW_UP,
+	"FF_SAW_DOWN":                  FF_SAW_DOWN,
+	"FF_CUSTOM":                    FF_CUSTOM,
+	"FF_WAVEFORM_MIN":              FF_WAVEFORM_MIN,
+	"FF_WAVEFORM_MAX":              FF_WAVEFORM_MAX,
+	"FF_GAIN":                      FF_GAIN,
+	"FF_AUTOCENTER":                FF_AUTOCENTER,
+	"FF_MAX_EFFECTS":               FF_MAX_EFFECTS,
+	"FF_MAX":                       FF_MAX,
 	"EV_SYN":                       EV_SYN,
 	"EV_KEY":                       EV_KEY,
 	"EV_REL":                       EV_REL,
@@ -716,13 +811,11 @@ var ecodes = map[string]int{
 	"EV_PWR":                       EV_PWR,
 	"EV_FF_STATUS":                 EV_FF_STATUS,
 	"EV_MAX":                       EV_MAX,
-	"EV_CNT":                       EV_CNT,
 	"SYN_REPORT":                   SYN_REPORT,
 	"SYN_CONFIG":                   SYN_CONFIG,
 	"SYN_MT_REPORT":                SYN_MT_REPORT,
 	"SYN_DROPPED":                  SYN_DROPPED,
 	"SYN_MAX":                      SYN_MAX,
-	"SYN_CNT":                      SYN_CNT,
 	"KEY_RESERVED":                 KEY_RESERVED,
 	"KEY_ESC":                      KEY_ESC,
 	"KEY_1":                        KEY_1,
@@ -1283,7 +1376,6 @@ var ecodes = map[string]int{
 	"BTN_TRIGGER_HAPPY40":          BTN_TRIGGER_HAPPY40,
 	"KEY_MIN_INTERESTING":          KEY_MIN_INTERESTING,
 	"KEY_MAX":                      KEY_MAX,
-	"KEY_CNT":                      KEY_CNT,
 	"REL_X":                        REL_X,
 	"REL_Y":                        REL_Y,
 	"REL_Z":                        REL_Z,
@@ -1295,7 +1387,6 @@ var ecodes = map[string]int{
 	"REL_WHEEL":                    REL_WHEEL,
 	"REL_MISC":                     REL_MISC,
 	"REL_MAX":                      REL_MAX,
-	"REL_CNT":                      REL_CNT,
 	"ABS_X":                        ABS_X,
 	"ABS_Y":                        ABS_Y,
 	"ABS_Z":                        ABS_Z,
@@ -1338,7 +1429,6 @@ var ecodes = map[string]int{
 	"ABS_MT_TOOL_X":                ABS_MT_TOOL_X,
 	"ABS_MT_TOOL_Y":                ABS_MT_TOOL_Y,
 	"ABS_MAX":                      ABS_MAX,
-	"ABS_CNT":                      ABS_CNT,
 	"SW_LID":                       SW_LID,
 	"SW_TABLET_MODE":               SW_TABLET_MODE,
 	"SW_HEADPHONE_INSERT":          SW_HEADPHONE_INSERT,
@@ -1357,7 +1447,6 @@ var ecodes = map[string]int{
 	"SW_MUTE_DEVICE":               SW_MUTE_DEVICE,
 	"SW_PEN_INSERTED":              SW_PEN_INSERTED,
 	"SW_MAX":                       SW_MAX,
-	"SW_CNT":                       SW_CNT,
 	"MSC_SERIAL":                   MSC_SERIAL,
 	"MSC_PULSELED":                 MSC_PULSELED,
 	"MSC_GESTURE":                  MSC_GESTURE,
@@ -1365,7 +1454,6 @@ var ecodes = map[string]int{
 	"MSC_SCAN":                     MSC_SCAN,
 	"MSC_TIMESTAMP":                MSC_TIMESTAMP,
 	"MSC_MAX":                      MSC_MAX,
-	"MSC_CNT":                      MSC_CNT,
 	"LED_NUML":                     LED_NUML,
 	"LED_CAPSL":                    LED_CAPSL,
 	"LED_SCROLLL":                  LED_SCROLLL,
@@ -1378,16 +1466,13 @@ var ecodes = map[string]int{
 	"LED_MAIL":                     LED_MAIL,
 	"LED_CHARGING":                 LED_CHARGING,
 	"LED_MAX":                      LED_MAX,
-	"LED_CNT":                      LED_CNT,
 	"REP_DELAY":                    REP_DELAY,
 	"REP_PERIOD":                   REP_PERIOD,
 	"REP_MAX":                      REP_MAX,
-	"REP_CNT":                      REP_CNT,
 	"SND_CLICK":                    SND_CLICK,
 	"SND_BELL":                     SND_BELL,
 	"SND_TONE":                     SND_TONE,
 	"SND_MAX":                      SND_MAX,
-	"SND_CNT":                      SND_CNT,
 }
 
 var KEY = map[int]string{}
@@ -1403,6 +1488,7 @@ var ID = map[int]string{}
 var EV = map[int]string{}
 var BUS = map[int]string{}
 var SYN = map[int]string{}
+var FF = map[int]string{}
 
 var ByEventType = map[int]map[int]string{
 	EV_KEY: KEY,
@@ -1414,6 +1500,7 @@ var ByEventType = map[int]map[int]string{
 	EV_REP: REP,
 	EV_SND: SND,
 	EV_SYN: SYN,
+	EV_FF:  FF,
 }
 
 func init() {
@@ -1443,6 +1530,8 @@ func init() {
 			BUS[value] = code
 		case strings.HasPrefix(code, "SYN"):
 			SYN[value] = code
+		case strings.HasPrefix(code, "FF"):
+			FF[value] = code
 		}
 	}
 }
