@@ -12,3 +12,5 @@ Thumbs.db
 *.swp
 
 chordpad
+chordpad.log
+chordpad.pid
