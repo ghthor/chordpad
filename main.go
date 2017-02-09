@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"log"
-	"time"
 
 	"github.com/ghthor/chordpad/input"
 	"github.com/ghthor/uinput"
@@ -13,24 +12,6 @@ import (
 // code they trigger. This is used to configure what key a specific chord
 // will output to the computer.
 type ChordOutputMapping map[input.Chord]int
-
-// An OutputEvent is used to send virtual input events using a uinput device.
-type OutputEvent interface {
-	OutputTo(*uinput.VKeyboard) error
-}
-
-type singleKeyPress int
-
-func (key singleKeyPress) OutputTo(vk *uinput.VKeyboard) error {
-	err := vk.SendKeyPress(int(key))
-	if err != nil {
-		return err
-	}
-
-	time.Sleep(50 * time.Millisecond)
-
-	return vk.SendKeyRelease(int(key))
-}
 
 func send(ctx context.Context, device *input.Source, output uinput.VKeyboard) error {
 	ctx, cancelCtx := context.WithCancel(ctx)
@@ -44,8 +25,8 @@ func apply(changes <-chan input.Model, device *uinput.VKeyboard) error {
 			continue
 		}
 
-		if key, isBound := ChordOutputMappingDefaults[model.Trigger]; isBound {
-			if err := singleKeyPress(key).OutputTo(device); err != nil {
+		if key, isBound := Chords[model.Trigger]; isBound {
+			if err := key.OutputTo(device); err != nil {
 				return err
 			}
 
