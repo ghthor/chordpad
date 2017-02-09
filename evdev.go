@@ -7,53 +7,91 @@ import (
 	"time"
 
 	"github.com/cenk/backoff"
+	"github.com/ghthor/chordpad/input"
 	evdev "github.com/ghthor/golang-evdev"
 )
 
-type evdevKeyEvent struct {
-	btn    Button
-	source *evdev.KeyEvent
-}
-
-func (e evdevKeyEvent) Button() Button { return e.btn }
-func (e evdevKeyEvent) State() ButtonState {
-	return ButtonState(e.source.State)
-}
-
-type evdevInputDevice struct {
-	config InputConfig
+type steamController struct {
 	*evdev.InputDevice
 }
 
-func (dev evdevInputDevice) ReadEvent() (ButtonEvent, error) {
-readOne:
+type Model struct {
+	input.Model
+}
+
+var xboxBtnToChordIndex = map[int]uint{
+	evdev.BTN_A:      0,
+	evdev.BTN_B:      1,
+	evdev.BTN_TL:     2,
+	evdev.BTN_TR:     3,
+	evdev.BTN_THUMBL: 4,
+	evdev.BTN_THUMBR: 5,
+}
+
+func (m Model) applyKey(state evdev.KeyEventState) func(uint) Model {
+	switch state {
+	case evdev.KeyDown:
+		return m.keyDown
+	default:
+		return m.keyUp
+	}
+}
+
+func (m Model) keyDown(index uint) Model {
+	m.Keys |= (1 << index)
+	m.Build |= m.Keys
+	m.Trigger = 0
+	return m
+}
+
+func (m Model) keyUp(index uint) Model {
+	m.Keys ^= (1 << index)
+	m.Trigger = m.Build
+	m.Build = 0
+	return m
+}
+
+func (dev steamController) Update(model input.Model) (input.Model, error) {
 	e, err := dev.ReadOne()
 	if err != nil {
-		return nil, err
+		return model, err
 	}
 
-	fmt.Println("input event: ", e.String())
+	if e.Type == evdev.EV_SYN {
+		return model, nil
+	}
 
 	switch e.Type {
 	case evdev.EV_KEY:
 		ke := evdev.NewKeyEvent(e)
-		if btn, isBound := dev.config[int(ke.Scancode)]; isBound {
-			return evdevKeyEvent{btn, ke}, nil
+
+		if index, exists := xboxBtnToChordIndex[int(ke.Scancode)]; exists {
+			return Model{model}.applyKey(ke.State)(index).Model, nil
 		}
 
-		return nil, UnboundInputEvent{ke.String()}
+		// TODO: Bind all possible buttons
+		fmt.Println("unbound input: ", ke)
+		return model, nil
 
 	case evdev.EV_REL:
-		e := evdev.NewRelEvent(e)
-		return nil, UnboundInputEvent{e.String()}
+		// TODO: Map into a model change
+		//e := evdev.NewRelEvent(e)
+		return model, nil
+
+	case evdev.EV_ABS:
+		// TODO: Map into a model change
+		abs := evdev.NewAbsEvent(e)
+		fmt.Println(abs)
+		return model, nil
 
 	default:
 	}
 
-	goto readOne
+	fmt.Println("unexpected input event: ", e.String())
+	return model, nil
 }
 
-func (dev evdevInputDevice) Close() error {
+func (dev steamController) Close() error {
 	return dev.File.Close()
 }
 
@@ -92,7 +130,7 @@ func autoSelectInputDeviceOp(output **evdev.InputDevice) func() error {
 	}
 }
 
-func autoSelectEvdevDevice() InputDevice {
+func autoSelectEvdevDevice() input.Device {
 	var dev *evdev.InputDevice
 
 	backoffConfig := backoff.ExponentialBackOff{
@@ -110,5 +148,6 @@ func autoSelectEvdevDevice() InputDevice {
 		log.Fatal(err)
 	}
 
-	return evdevInputDevice{InputConfigDefaults, dev}
+	// TODO: Map into different types of devices
+	return steamController{dev}
 }
