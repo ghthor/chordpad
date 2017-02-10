@@ -9,7 +9,6 @@ chordpad.pid: chordpad
 chordpad.alive: chordpad chordpad.pid
 
 chordpad.dead:
-	cat chordpad.pid | xargs kill || true
-	rm chordpad.pid || true
+	./make/process-dead chordpad
 
 .PHONY: %.dead %.alive
