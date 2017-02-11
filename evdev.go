@@ -83,7 +83,7 @@ type AbsPad struct {
 }
 
 func (p AbsPad) Update(m input.Model) input.Model {
-	if p.y == 0 && p.x == 0 {
+	if p.y|p.x == 0 {
 		return p.touchUp(m)
 	}
 	return p.touchMove(m)
