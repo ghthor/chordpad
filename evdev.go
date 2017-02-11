@@ -59,15 +59,22 @@ const (
 	BTN_TR0
 	BTN_TR1
 	BTN_B
+
+	MOD_SHIFT
+	MOD_CTRL
+	MOD_ALT
+	MOD_META
 )
 
+const MOD_ALL = MOD_SHIFT | MOD_CTRL | MOD_ALT | MOD_META
+
 var BtnIndex = map[int]input.Chord{
-	evdev.BTN_A:      BTN_A,
-	evdev.BTN_B:      BTN_B,
+	evdev.BTN_A:      MOD_CTRL,
+	evdev.BTN_B:      MOD_ALT,
 	evdev.BTN_TL:     BTN_TL0,
 	evdev.BTN_TR:     BTN_TR0,
-	evdev.BTN_THUMBL: BTN_THUMBL,
-	evdev.BTN_THUMBR: BTN_THUMBR,
+	evdev.BTN_THUMBL: MOD_SHIFT,
+	evdev.BTN_THUMBR: MOD_SHIFT,
 }
 
 type AbsPad struct {

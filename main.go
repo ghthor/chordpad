@@ -25,7 +25,11 @@ func apply(changes <-chan input.Model, device *uinput.VKeyboard) error {
 			continue
 		}
 
-		if key, isBound := Chords[model.Trigger]; isBound {
+		if key, isBound := Chords[model.Trigger&^MOD_ALL]; isBound {
+			if model.Trigger&MOD_ALL != 0 {
+				key = applyModifiersTo(key, model.Trigger&MOD_ALL)
+			}
+
 			if err := key.OutputTo(device); err != nil {
 				return err
 			}
