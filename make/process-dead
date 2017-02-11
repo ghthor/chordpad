@@ -1,5 +1,6 @@
 #!/bin/bash
 
 if [ -f "$1.pid" ]; then
-	(cat "$1.pid" | xargs kill) && rm "$1.pid"
+	(cat "$1.pid" | xargs kill) || true
+	rm "$1.pid"
 fi
