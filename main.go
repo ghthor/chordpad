@@ -8,11 +8,6 @@ import (
 	"github.com/ghthor/uinput"
 )
 
-// A ChordOutputMapping will contain a map of chord values to the key
-// code they trigger. This is used to configure what key a specific chord
-// will output to the computer.
-type ChordOutputMapping map[input.Chord]int
-
 func send(ctx context.Context, device *input.Source, output uinput.VKeyboard) error {
 	ctx, cancelCtx := context.WithCancel(ctx)
 	defer cancelCtx()
@@ -25,7 +20,11 @@ func apply(changes <-chan input.Model, device *uinput.VKeyboard) error {
 			continue
 		}
 
-		if key, isBound := Chords[model.Trigger]; isBound {
+		if key, isBound := Chords[model.Trigger&^MOD_ALL]; isBound {
+			if model.Trigger&MOD_ALL != 0 {
+				key = applyModifiersTo(key, model.Trigger&MOD_ALL)
+			}
+
 			if err := key.OutputTo(device); err != nil {
 				return err
 			}

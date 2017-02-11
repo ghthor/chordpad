@@ -1,3 +1,6 @@
 #!/bin/sh
-./$1 &> $1.log &
-echo -e "$!" > $1.pid
+
+if [ -f "$1" ]; then
+  ./$1 &> $1.log &
+  echo -e "$!" > $1.pid
+fi
