@@ -1,8 +1,6 @@
 package main
 
 import (
-	"time"
-
 	"github.com/ghthor/chordpad/input"
 	"github.com/ghthor/uinput"
 )
@@ -40,8 +38,6 @@ func (key singleKeyPress) OutputTo(vk *uinput.VKeyboard) error {
 	if err != nil {
 		return err
 	}
-
-	time.Sleep(50 * time.Millisecond)
 
 	return vk.SendKeyRelease(int(key))
 }
