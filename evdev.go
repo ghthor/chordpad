@@ -14,26 +14,26 @@ import (
 
 type ChordIndex uint
 
-func keyDown(m input.Model, i ChordIndex) input.Model {
-	m.Keys |= (1 << i)
+func keysDown(m input.Model, keys input.Chord) input.Model {
+	m.Keys |= keys
 	m.Build |= m.Keys
 	m.Trigger = 0
 	return m
 }
 
-func keyUp(m input.Model, i ChordIndex) input.Model {
-	m.Keys ^= (1 << i)
+func keysUp(m input.Model, keys input.Chord) input.Model {
+	m.Keys ^= keys
 	m.Trigger = m.Build
 	m.Build = 0
 	return m
 }
 
-func applyKey(state evdev.KeyEventState) func(input.Model, ChordIndex) input.Model {
+func applyKey(state evdev.KeyEventState) func(input.Model, input.Chord) input.Model {
 	switch state {
 	case evdev.KeyDown:
-		return keyDown
+		return keysDown
 	default:
-		return keyUp
+		return keysUp
 	}
 }
 
@@ -50,7 +50,7 @@ const MaxDeadzone = 5 * math.MaxInt16 / 10
 const MaxDeadzoneSq = MaxDeadzone * MaxDeadzone
 
 const (
-	BTN_A ChordIndex = iota + 8
+	BTN_A input.Chord = 1 << (iota + 8)
 	BTN_TL1
 	BTN_TL0
 	BTN_THUMBL
@@ -61,7 +61,7 @@ const (
 	BTN_B
 )
 
-var BtnIndex = map[int]ChordIndex{
+var BtnIndex = map[int]input.Chord{
 	evdev.BTN_A:      BTN_A,
 	evdev.BTN_B:      BTN_B,
 	evdev.BTN_TL:     BTN_TL0,
@@ -124,7 +124,7 @@ func buttonFor(x, y int32) input.Chord {
 }
 
 type AbsTrigger struct {
-	output ChordIndex
+	output input.Chord
 	value  int32
 }
 
@@ -140,10 +140,10 @@ func (t *AbsTrigger) Update(model input.Model, value int32) input.Model {
 
 	t.value = value
 	if value == 255 {
-		return keyDown(model, t.output)
+		return keysDown(model, t.output)
 	}
 
-	return keyUp(model, t.output)
+	return keysUp(model, t.output)
 }
 
 type triggers map[int]*AbsTrigger
