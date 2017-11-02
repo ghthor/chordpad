@@ -29,5 +29,3 @@ func KeysUp(m Model, keys Chord) Model {
 	m.Build = 0
 	return m
 }
-
-type ModelChanges <-chan Model
