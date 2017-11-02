@@ -16,4 +16,18 @@ type Model struct {
 	Trigger Chord
 }
 
+func KeysDown(m Model, keys Chord) Model {
+	m.Keys |= keys
+	m.Build |= m.Keys
+	m.Trigger = 0
+	return m
+}
+
+func KeysUp(m Model, keys Chord) Model {
+	m.Keys ^= keys
+	m.Trigger = m.Build
+	m.Build = 0
+	return m
+}
+
 type ModelChanges <-chan Model

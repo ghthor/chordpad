@@ -14,26 +14,12 @@ import (
 
 type ChordIndex uint
 
-func keysDown(m input.Model, keys input.Chord) input.Model {
-	m.Keys |= keys
-	m.Build |= m.Keys
-	m.Trigger = 0
-	return m
-}
-
-func keysUp(m input.Model, keys input.Chord) input.Model {
-	m.Keys ^= keys
-	m.Trigger = m.Build
-	m.Build = 0
-	return m
-}
-
 func applyKey(state evdev.KeyEventState) func(input.Model, input.Chord) input.Model {
 	switch state {
 	case evdev.KeyDown:
-		return keysDown
+		return input.KeysDown
 	default:
-		return keysUp
+		return input.KeysUp
 	}
 }
 
@@ -147,10 +133,10 @@ func (t *AbsTrigger) Update(model input.Model, value int32) input.Model {
 
 	t.value = value
 	if value == 255 {
-		return keysDown(model, t.output)
+		return input.KeysDown(model, t.output)
 	}
 
-	return keysUp(model, t.output)
+	return input.KeysUp(model, t.output)
 }
 
 type triggers map[int]*AbsTrigger
