@@ -135,6 +135,62 @@ func (devices DualWieldElecomMouse) ReadEvents(ctx context.Context) <-chan Event
 	return output
 }
 
+type Chord uint32
+
+const (
+	MOD_SHFT Chord = 1 << iota
+	MOD_CTRL
+	MOD_ALT
+	MOD_SUPR
+
+	L_1
+	L_0
+
+	L_W
+	L_N
+	L_E
+	L_S
+
+	R_W
+	R_N
+	R_E
+	R_S
+
+	R_0
+	R_1
+)
+
+const L_Guides = L_W | L_N | L_E | L_S
+const R_Guides = R_W | R_N | R_E | R_S
+const GuideBits = L_Guides | R_Guides
+
+type Model struct {
+	State Chord `json:"state"`
+	Build Chord `json:"build"`
+	Play  Chord `json:"play"`
+}
+
+func (m Model) addGuide(value Chord) Model {
+	m.State |= value
+	m.Build = m.State
+	m.Play = 0
+	return m
+}
+
+func (m Model) triggerDown(value Chord) Model {
+	m.State |= value
+	m.Build = m.State
+	m.Play = 0
+	return m
+}
+
+func (m Model) triggerUp(value Chord) Model {
+	m.Play = m.Build
+	m.State ^= value | GuideBits
+	m.Build = m.State
+	return m
+}
+
 func main() {
 	// Fetch the Device handles for the Elecom mice
 	mice, err := getElecomMiceDevices()
