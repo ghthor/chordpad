@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"strings"
-	"time"
 
 	evdev "github.com/ghthor/golang-evdev"
+	"github.com/gorilla/websocket"
 )
 
 func getElecomMiceDevices() ([]*evdev.InputDevice, error) {
@@ -150,24 +151,42 @@ func main() {
 		log.Fatal(err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-
-	go func() {
-		<-time.After(10 * time.Second)
-		cancel()
-	}()
-
-	// Start a Fan-In channel for reading events
-	events := device.ReadEvents(ctx)
-
-	for {
-		select {
-		case e := <-events:
-			log.Println(e)
-		case <-ctx.Done():
-			return
-		}
+	upgrader := websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin:     func(r *http.Request) bool { return true },
 	}
 
-	// TODO: Start up webui server
+	http.HandleFunc("/model", func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+
+		ctx, cancel := context.WithCancel(context.Background())
+
+		// Start a Fan-In channel for reading events
+		events := device.ReadEvents(ctx)
+
+		for {
+			select {
+			case e := <-events:
+				err := conn.WriteMessage(websocket.TextMessage, []byte(e.String()))
+				if err != nil {
+					log.Println(err)
+					cancel()
+					return
+				}
+
+			case <-ctx.Done():
+				return
+			}
+		}
+	})
+
+	err = http.ListenAndServe("localhost:3001", nil)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
