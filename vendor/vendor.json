@@ -19,6 +19,12 @@
 			"path": "github.com/ghthor/uinput",
 			"revision": "fd7e35aa04f82ea71ef41459b267b0e4534f2dcb",
 			"revisionTime": "2016-08-28T03:53:02Z"
+		},
+		{
+			"checksumSHA1": "PCxkdS2nrh/UEFos7Oh2nHKvN7w=",
+			"path": "github.com/gorilla/websocket",
+			"revision": "7ca4275b84a9d500f68971c8c4a97f0ec18eb889",
+			"revisionTime": "2017-11-12T12:01:55Z"
 		}
 	],
 	"rootPath": "github.com/ghthor/chordpad"
