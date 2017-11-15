@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -72,7 +73,6 @@ func (dev *Device) ReadEvents(ctx context.Context) <-chan Event {
 			}
 
 			select {
-			// NOTE: Careful with race conditions if Hand is changed externally
 			case output <- Event{hand, e}:
 			case <-ctx.Done():
 				return
@@ -85,6 +85,7 @@ func (dev *Device) ReadEvents(ctx context.Context) <-chan Event {
 
 type DualWieldElecomMouse struct {
 	LH, RH *Device
+	Err    error
 }
 
 // TODO: Change slice into array
@@ -101,7 +102,7 @@ func NewDualWieldElecomMouse(mice []*evdev.InputDevice) (DualWieldElecomMouse, e
 		RH = &Device{Right, mice[0], nil}
 	}
 
-	return DualWieldElecomMouse{LH, RH}, nil
+	return DualWieldElecomMouse{LH, RH, nil}, nil
 }
 
 func (devices DualWieldElecomMouse) ReadEvents(ctx context.Context) <-chan Event {
@@ -126,6 +127,38 @@ func (devices DualWieldElecomMouse) ReadEvents(ctx context.Context) <-chan Event
 				output <- e
 			case e := <-RH:
 				output <- e
+			case <-ctx.Done():
+				return
+			}
+		}
+	}(output)
+
+	return output
+}
+
+func (devices *DualWieldElecomMouse) ReadModelUpdates(ctx context.Context) <-chan Model {
+	output := make(chan Model)
+
+	model := Model{}
+	events := devices.ReadEvents(ctx)
+
+	go func(output chan<- Model) {
+		defer close(output)
+		for event := range events {
+			nextModel, err := model.Update(event)
+			if err != nil {
+				devices.Err = err
+				return
+			}
+
+			if nextModel == model {
+				continue
+			}
+
+			model = nextModel
+
+			select {
+			case output <- nextModel:
 			case <-ctx.Done():
 				return
 			}
@@ -186,9 +219,65 @@ func (m Model) triggerDown(value Chord) Model {
 
 func (m Model) triggerUp(value Chord) Model {
 	m.Play = m.Build
-	m.State ^= value | GuideBits
-	m.Build = m.State
+	m.State ^= (value | (m.State & GuideBits))
+	m.Build = 0
 	return m
+}
+
+type KeyEvent struct {
+	Code  Chord
+	Value int32
+}
+
+func (e Event) AsKeyEvent() KeyEvent {
+	switch e.Hand {
+	case Left:
+		switch e.Code {
+		case evdev.BTN_LEFT:
+			return KeyEvent{L_0, e.Value}
+		case evdev.BTN_RIGHT:
+			return KeyEvent{L_1, e.Value}
+		default:
+		}
+
+	case Right:
+		switch e.Code {
+		case evdev.BTN_LEFT:
+			return KeyEvent{R_0, e.Value}
+		case evdev.BTN_RIGHT:
+			return KeyEvent{R_1, e.Value}
+		default:
+		}
+	default:
+	}
+	return KeyEvent{}
+}
+
+func (key KeyEvent) Update(m Model) Model {
+	const (
+		KEY_UP int32 = iota
+		KEY_DOWN
+		KEY_HOLD
+	)
+	switch key.Value {
+	case KEY_DOWN:
+		return m.triggerDown(key.Code)
+	case KEY_UP:
+		return m.triggerUp(key.Code)
+	default:
+	}
+
+	return m
+}
+
+func (m Model) Update(event Event) (Model, error) {
+	switch event.Type {
+	case evdev.EV_KEY:
+		return event.AsKeyEvent().Update(m), nil
+
+	default:
+	}
+	return m, nil
 }
 
 func main() {
@@ -223,12 +312,19 @@ func main() {
 		ctx, cancel := context.WithCancel(context.Background())
 
 		// Start a Fan-In channel for reading events
-		events := device.ReadEvents(ctx)
+		model := device.ReadModelUpdates(ctx)
 
 		for {
 			select {
-			case e := <-events:
-				err := conn.WriteMessage(websocket.TextMessage, []byte(e.String()))
+			case m := <-model:
+				raw, err := json.Marshal(m)
+				if err != nil {
+					log.Println(err)
+					cancel()
+					return
+				}
+
+				err = conn.WriteMessage(websocket.TextMessage, raw)
 				if err != nil {
 					log.Println(err)
 					cancel()
