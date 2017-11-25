@@ -50,33 +50,29 @@ type alias MapLayout =
 
 
 layoutFor : Hand -> KeyLayout -> HandLayout
-layoutFor hand keys =
+layoutFor hand { l, r } =
     case hand of
         L ->
-            keys.l
+            l
 
         R ->
-            keys.r
+            r
 
 
 keyFor : Finger -> HandLayout -> Key
-keyFor finger layout =
-    let
-        ( index, middle, ring, pinky ) =
-            layout
-    in
-        case finger of
-            Index ->
-                index
+keyFor finger ( index, middle, ring, pinky ) =
+    case finger of
+        Index ->
+            index
 
-            Middle ->
-                middle
+        Middle ->
+            middle
 
-            Ring ->
-                ring
+        Ring ->
+            ring
 
-            Pinky ->
-                pinky
+        Pinky ->
+            pinky
 
 
 keyForInput : Hand -> Finger -> KeyLayout -> Key
@@ -118,23 +114,19 @@ keybindingFor code =
 
 
 pageFor : Dir -> MapLayout -> NotePage
-pageFor direction map =
-    let
-        ( w, n, e, s ) =
-            map
-    in
-        case direction of
-            W ->
-                w
+pageFor direction ( w, n, e, s ) =
+    case direction of
+        W ->
+            w
 
-            N ->
-                n
+        N ->
+            n
 
-            E ->
-                e
+        E ->
+            e
 
-            S ->
-                s
+        S ->
+            s
 
 
 type alias KeyLayout =
