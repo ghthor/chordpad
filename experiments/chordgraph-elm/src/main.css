@@ -66,7 +66,7 @@ body {
   align-items: center;
 }
 
-button.key-box {
+.key-box {
   background-color: #181e1b;
   border-color: #75b9be #60989c;
   color: #cfdbd5;
@@ -84,6 +84,10 @@ button.key-box {
 }
 
 .key-down {
+  background-color: red;
+  color: red;
+
+  border-color: #60989c #75b9be;
 }
 
 .key-open {
