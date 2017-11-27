@@ -315,6 +315,66 @@ insertKeyMapAtKey press path value layout =
                     { layout | keys = Dict.insert index updatedKeyMap layout.keys }
 
 
+getKeyMapForPath : InputPath -> KeyMap -> KeyMap
+getKeyMapForPath path map =
+    case path of
+        [] ->
+            map
+
+        action :: path ->
+            case action of
+                Move dir ->
+                    map
+
+                Press key ->
+                    map
+
+
+getKeyMapByCoord : Coord -> InputPath -> KeyMap -> KeyMap
+getKeyMapByCoord loc path map =
+    case map of
+        _ ->
+            map
+
+        Graph graph ->
+            case path of
+                [] ->
+                    case Dict.get loc graph of
+                        Just layout ->
+                            Layout layout
+
+                        Nothing ->
+                            map
+
+                action :: path ->
+                    case action of
+                        Move dir ->
+                            getKeyMapByCoord (moveBy dir loc) path map
+
+                        Press key ->
+                            case Dict.get loc graph of
+                                Just layout ->
+                                    getKeyMapAtKey key path layout
+
+                                Nothing ->
+                                    map
+
+
+getKeyMapAtKey : KeyInput -> InputPath -> KeyLayout -> KeyMap
+getKeyMapAtKey key path layout =
+    let
+        map =
+            Dict.get (keyInputIndex key) layout.keys
+                |> Maybe.withDefault Empty
+    in
+        case path of
+            [] ->
+                map
+
+            _ :: _ ->
+                getKeyMapForPath path map
+
+
 type alias User =
     { output : List OutputValue
     , path : InputPath
