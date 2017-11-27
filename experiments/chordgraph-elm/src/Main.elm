@@ -2,83 +2,44 @@ module Main exposing (..)
 
 import KeyMap exposing (..)
 import Dict
-import Html exposing (Html, text, div, h1, img, ul, li)
-import Html.Attributes exposing (src)
+import Set
+import Html exposing (Html, button, span, text, div, h1, ul, li)
+import Html.Attributes exposing (style, class, classList, src)
 import Keyboard
 
 
 ---- MODEL ----
 
 
-type alias User =
-    { output : List OutputValue
-    , path : InputPath
-    }
+keyInputsDisplayOrder : List KeyInput
+keyInputsDisplayOrder =
+    [ ( L, Pinky )
+    , ( L, Ring )
+    , ( L, Middle )
+    , ( L, Index )
+    , ( R, Index )
+    , ( R, Middle )
+    , ( R, Ring )
+    , ( R, Pinky )
+    ]
 
 
-type alias Model =
-    { root : KeyMap
-    , user : User
-    , keys : List Keyboard.KeyCode
-    }
+leftHand : List KeyInput
+leftHand =
+    [ ( L, Pinky )
+    , ( L, Ring )
+    , ( L, Middle )
+    , ( L, Index )
+    ]
 
 
-init : ( Model, Cmd Msg )
-init =
-    ( { root = Graph Dict.empty, user = User [] [], keys = [] }, Cmd.none )
-
-
-
----- UPDATE ----
-
-
-type Msg
-    = KeyDown Keyboard.KeyCode
-    | KeyUp Keyboard.KeyCode
-    | SetKeyMap KeyMap
-    | NoOp
-
-
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
-    case msg of
-        KeyDown code ->
-            ( { model | keys = code :: model.keys }, Cmd.none )
-
-        KeyUp code ->
-            let
-                keys =
-                    model.keys
-                        |> List.filter (\c -> c /= code)
-            in
-                ( { model | keys = keys }, Cmd.none )
-
-        SetKeyMap keyMap ->
-            case model.user.path of
-                [] ->
-                    ( { model | root = keyMap }, Cmd.none )
-
-                path ->
-                    ( model, Cmd.none )
-
-        NoOp ->
-            ( model, Cmd.none )
-
-
-
----- SUBSCRIPTIONS ----
-
-
-subscriptions : Model -> Sub Msg
-subscriptions model =
-    Sub.batch
-        [ Keyboard.downs KeyDown
-        , Keyboard.ups KeyUp
-        ]
-
-
-
----- VIEW ----
+rightHand : List KeyInput
+rightHand =
+    [ ( R, Index )
+    , ( R, Middle )
+    , ( R, Ring )
+    , ( R, Pinky )
+    ]
 
 
 keybindingFor : Keyboard.KeyCode -> Maybe KeyInput
@@ -112,9 +73,202 @@ keybindingFor code =
             Nothing
 
 
-viewCodes : List Keyboard.KeyCode -> Html msg
-viewCodes codes =
+type alias KeyCodes =
+    Set.Set Keyboard.KeyCode
+
+
+type alias Model =
+    { root : KeyMap
+    , inputs : InputPath
+    , keyCodes : KeyCodes
+    }
+
+
+init : ( Model, Cmd Msg )
+init =
+    ( { root = Layout emptyKeyLayout
+      , inputs = []
+      , keyCodes = Set.empty
+      }
+    , Cmd.none
+    )
+
+
+
+---- UPDATE ----
+
+
+type Msg
+    = KeyDown Keyboard.KeyCode
+    | KeyUp Keyboard.KeyCode
+    | SetKeyMap KeyMap
+    | NoOp
+
+
+update : Msg -> Model -> ( Model, Cmd Msg )
+update msg model =
+    case msg of
+        KeyDown code ->
+            if Set.member code model.keyCodes then
+                ( model, Cmd.none )
+            else
+                let
+                    updatedInputs =
+                        case keybindingFor code of
+                            Just key ->
+                                if keyInputExistsIn model.inputs key then
+                                    model.inputs
+                                else
+                                    List.append model.inputs [ Press key ]
+
+                            Nothing ->
+                                model.inputs
+                in
+                    ( { model
+                        | keyCodes = Set.insert code model.keyCodes
+                        , inputs = updatedInputs
+                      }
+                    , Cmd.none
+                    )
+
+        KeyUp code ->
+            let
+                updatedInputs =
+                    case keybindingFor code of
+                        Nothing ->
+                            model.inputs
+
+                        Just key ->
+                            -- Only clear the inputs if the Key is part of the current set
+                            if keyInputExistsIn model.inputs key then
+                                []
+                            else
+                                model.inputs
+            in
+                ( { model
+                    | keyCodes = Set.remove code model.keyCodes
+                    , inputs = updatedInputs
+                  }
+                , Cmd.none
+                )
+
+        SetKeyMap keyMap ->
+            case model.inputs of
+                [] ->
+                    ( { model | root = keyMap }, Cmd.none )
+
+                path ->
+                    ( model, Cmd.none )
+
+        NoOp ->
+            ( model, Cmd.none )
+
+
+
+---- SUBSCRIPTIONS ----
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    Sub.batch
+        [ Keyboard.downs KeyDown
+        , Keyboard.ups KeyUp
+        ]
+
+
+
+---- VIEW ----
+
+
+viewKeyMap : InputPath -> KeyMap -> Html msg
+viewKeyMap inputs map =
+    case map of
+        Empty ->
+            div [] []
+
+        Output value ->
+            div [] []
+
+        Layout layout ->
+            viewKeyLayout inputs layout
+
+        Graph graph ->
+            div [] []
+
+
+type alias KeyView =
+    ( Bool, KeyMap )
+
+
+toKeyView : InputPath -> KeyLayout -> KeyInput -> KeyView
+toKeyView inputs { keys } key =
+    ( keyInputExistsIn inputs key
+    , Dict.get (keyInputIndex key) keys
+        |> Maybe.withDefault Empty
+    )
+
+
+viewKeyLayout : InputPath -> KeyLayout -> Html msg
+viewKeyLayout inputs layout =
+    div [ class "key-layout" ]
+        [ div [ class "left-hand" ]
+            (List.map (toKeyView inputs layout) leftHand
+                |> List.map viewKey
+            )
+        , div [ class "right-hand" ]
+            (List.map (toKeyView inputs layout) rightHand
+                |> List.map viewKey
+            )
+        ]
+
+
+viewKey : KeyView -> Html msg
+viewKey ( down, key ) =
+    case key of
+        Empty ->
+            viewEmptyKey down
+
+        Output value ->
+            case value of
+                Unassigned ->
+                    viewEmptyKey down
+
+                Char str ->
+                    viewKeyButton down str
+
+        _ ->
+            viewEmptyKey down
+
+
+viewEmptyKey : Bool -> Html msg
+viewEmptyKey down =
+    viewKeyButton down "+"
+
+
+viewKeyButton : Bool -> String -> Html msg
+viewKeyButton down label =
+    button
+        [ classList
+            [ ( "key-box", True )
+            , ( "key-down", down )
+            ]
+        ]
+        [ text label ]
+
+
+viewInputPath : InputPath -> Html msg
+viewInputPath path =
+    path
+        |> List.map toString
+        |> List.map text
+        |> List.map (\t -> li [] [ t ])
+        |> ul []
+
+
+viewKeyCodes : KeyCodes -> Html msg
+viewKeyCodes codes =
     codes
+        |> Set.toList
         |> List.map toString
         |> String.join ", "
         |> text
@@ -133,10 +287,10 @@ viewKeyInput codes =
 view : Model -> Html Msg
 view model =
     div []
-        [ img [ src "/logo.svg" ] []
-        , h1 [] [ text "Your Elm App is working!" ]
-        , viewCodes model.keys
-        , viewKeyInput model.keys
+        [ h1 [] [ text "Your Elm App is working!" ]
+        , viewKeyCodes model.keyCodes
+        , viewKeyMap model.inputs model.root
+        , viewInputPath model.inputs
         ]
 
 
