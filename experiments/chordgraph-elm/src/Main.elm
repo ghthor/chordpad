@@ -4,7 +4,7 @@ import KeyMap exposing (..)
 import Dict
 import Set
 import Html exposing (Html, button, span, text, div, h1, ul, li)
-import Html.Attributes exposing (style, class, classList, src)
+import Html.Attributes exposing (id, style, class, classList, src)
 import Keyboard
 
 
@@ -286,11 +286,9 @@ viewKeyInput codes =
 
 view : Model -> Html Msg
 view model =
-    div []
-        [ h1 [] [ text "Your Elm App is working!" ]
-        , viewKeyCodes model.keyCodes
-        , viewKeyMap model.inputs model.root
-        , viewInputPath model.inputs
+    div [ id "app" ]
+        [ div [ class "key-map-root" ]
+            [ viewKeyMap model.inputs model.root ]
         ]
 
 

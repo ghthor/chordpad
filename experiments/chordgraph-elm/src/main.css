@@ -1,24 +1,38 @@
-body {
-  font-family: 'Source Sans Pro', 'Trebuchet MS', 'Lucida Grande', 'Bitstream Vera Sans', 'Helvetica Neue', sans-serif;
+html, body, #root, #root > #app, #root .key-map-root {
   margin: 0;
-  text-align: center;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
 
+body {
   background-color: #34403a;
   color: #cfdbd5;
+  font-family: 'Source Sans Pro', 'Trebuchet MS', 'Lucida Grande', 'Bitstream Vera Sans', 'Helvetica Neue', sans-serif;
+
+  text-align: center;
+
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-content: stretch;
+  align-items: stretch;
 }
 
-h1 {
-  font-size: 30px;
-}
-
-img {
-  margin: 20px 0;
-  max-width: 200px;
+.key-map-root {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  justify-content: center;
+  align-content: center;
+  align-items: center;
 }
 
 
 .key-layout {
   background-color: #987284;
+
+  max-width: 700px;
 
   display: flex;
   flex-direction: row;
