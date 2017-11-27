@@ -90,6 +90,27 @@ type alias InputPath =
     List UserInput
 
 
+toKeyInput : UserInput -> Maybe KeyInput
+toKeyInput input =
+    case input of
+        Press key ->
+            Just key
+
+        Move _ ->
+            Nothing
+
+
+keyInputExistsIn : InputPath -> KeyInput -> Bool
+keyInputExistsIn path key =
+    let
+        index =
+            keyInputIndex key
+    in
+        path
+            |> List.filterMap toKeyInput
+            |> List.any (\k -> (keyInputIndex k) == index)
+
+
 type OutputValue
     = Unassigned
     | Char String
