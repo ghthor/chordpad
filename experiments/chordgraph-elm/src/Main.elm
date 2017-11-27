@@ -3,39 +3,14 @@ module Main exposing (..)
 import Html exposing (Html, text, div, h1, img, ul, li)
 import Html.Attributes exposing (src)
 import Keyboard
+import Dict
 
 
 ---- MODEL ----
 
 
-type OutputValue
-    = Unassigned
-    | Char String
-
-
-type Key
-    = Held NotePage
-    | Open NotePage
-
-
-type alias HandLayout =
-    ( Key, Key, Key, Key )
-
-
-type Hand
-    = L
-    | R
-
-
-type Finger
-    = Index
-    | Middle
-    | Ring
-    | Pinky
-
-
-type alias UserInput =
-    ( Hand, Finger )
+type alias Coord =
+    ( Int, Int )
 
 
 type Dir
@@ -45,44 +20,373 @@ type Dir
     | S
 
 
-type alias MapLayout =
-    ( NotePage, NotePage, NotePage, NotePage )
+moveBy : Dir -> Coord -> Coord
+moveBy dir ( x, y ) =
+    case dir of
+        W ->
+            ( x - 1, y )
+
+        N ->
+            ( x, y + 1 )
+
+        E ->
+            ( x + 1, y )
+
+        S ->
+            ( x, y - 1 )
 
 
-layoutFor : Hand -> KeyLayout -> HandLayout
-layoutFor hand { l, r } =
+type Hand
+    = L
+    | R
+
+
+handIndex hand =
     case hand of
         L ->
-            l
+            0
 
         R ->
-            r
+            1
 
 
-keyFor : Finger -> HandLayout -> Key
-keyFor finger ( index, middle, ring, pinky ) =
+type Finger
+    = Index
+    | Middle
+    | Ring
+    | Pinky
+
+
+fingerIndex finger =
     case finger of
         Index ->
-            index
+            0
 
         Middle ->
-            middle
+            1
 
         Ring ->
-            ring
+            2
 
         Pinky ->
-            pinky
+            3
 
 
-keyForInput : Hand -> Finger -> KeyLayout -> Key
-keyForInput hand finger layout =
-    layout
-        |> layoutFor hand
-        |> keyFor finger
+type alias KeyInput =
+    ( Hand, Finger )
 
 
-keybindingFor : Keyboard.KeyCode -> Maybe UserInput
+type alias KeyInputIndex =
+    ( Int, Int )
+
+
+keyInputIndex : KeyInput -> KeyInputIndex
+keyInputIndex ( hand, finger ) =
+    ( handIndex hand, fingerIndex finger )
+
+
+type UserInput
+    = Move Dir
+    | Press KeyInput
+
+
+type alias InputPath =
+    List UserInput
+
+
+type OutputValue
+    = Unassigned
+    | Char String
+
+
+type alias KeyLayout =
+    { output : OutputValue
+    , keys : Dict.Dict KeyInputIndex KeyMap
+    }
+
+
+emptyKeyLayout : KeyLayout
+emptyKeyLayout =
+    KeyLayout Unassigned Dict.empty
+
+
+type alias KeyMapGraph =
+    Dict.Dict Coord KeyLayout
+
+
+type KeyMap
+    = Empty
+    | Output OutputValue
+    | Layout KeyLayout
+    | Graph KeyMapGraph
+
+
+insertKeyMap : InputPath -> KeyMap -> KeyMap -> KeyMap
+insertKeyMap path value map =
+    case path of
+        [] ->
+            value
+
+        action :: path ->
+            case action of
+                Move dir ->
+                    let
+                        location =
+                            moveBy dir ( 0, 0 )
+                    in
+                        case map of
+                            Empty ->
+                                insertKeyMap (action :: path) value (Graph Dict.empty)
+
+                            Output output ->
+                                insertKeyMapLayoutNode ( 0, 0 ) [] (KeyLayout output Dict.empty) Dict.empty
+                                    |> Graph
+                                    |> insertKeyMap (action :: path) value
+
+                            Layout layout ->
+                                insertKeyMapLayoutNode ( 0, 0 ) [] layout Dict.empty
+                                    |> Graph
+                                    |> insertKeyMap (action :: path) value
+
+                            Graph graph ->
+                                map
+
+                Press key ->
+                    case map of
+                        Empty ->
+                            insertKeyMapAtKey key path value emptyKeyLayout
+                                |> Layout
+
+                        Output output ->
+                            insertKeyMapAtKey key path value (KeyLayout output Dict.empty)
+                                |> Layout
+
+                        Layout layout ->
+                            insertKeyMapAtKey key path value layout
+                                |> Layout
+
+                        Graph graph ->
+                            let
+                                updatedLayout =
+                                    Dict.get ( 0, 0 ) graph
+                                        |> Maybe.withDefault emptyKeyLayout
+                                        |> insertKeyMapAtKey key path value
+                            in
+                                Dict.insert ( 0, 0 ) updatedLayout graph
+                                    |> Graph
+
+
+insertKeyLayout : InputPath -> KeyLayout -> KeyMap -> KeyMap
+insertKeyLayout path layout map =
+    case path of
+        [] ->
+            case map of
+                Empty ->
+                    Layout layout
+
+                Output _ ->
+                    Layout layout
+
+                Layout _ ->
+                    Layout layout
+
+                Graph graph ->
+                    Graph (insertKeyMapLayoutNode ( 0, 0 ) [] layout graph)
+
+        action :: path ->
+            case action of
+                Move dir ->
+                    let
+                        location =
+                            moveBy dir ( 0, 0 )
+                    in
+                        case map of
+                            Empty ->
+                                insertKeyMapLayoutNode location path layout Dict.empty
+                                    |> Graph
+
+                            Output value ->
+                                Dict.insert ( 0, 0 ) (KeyLayout value Dict.empty) Dict.empty
+                                    |> insertKeyMapLayoutNode location path layout
+                                    |> Graph
+
+                            Layout origin ->
+                                Dict.insert ( 0, 0 ) origin Dict.empty
+                                    |> insertKeyMapLayoutNode location path layout
+                                    |> Graph
+
+                            Graph graph ->
+                                insertKeyMapLayoutNode location path layout graph
+                                    |> Graph
+
+                Press key ->
+                    case map of
+                        Empty ->
+                            emptyKeyLayout
+                                |> insertKeyMapAtKey key path (Layout layout)
+                                |> Layout
+
+                        Output value ->
+                            KeyLayout value Dict.empty
+                                |> insertKeyMapAtKey key path (Layout layout)
+                                |> Layout
+
+                        Layout layout ->
+                            layout
+                                |> insertKeyMapAtKey key path (Layout layout)
+                                |> Layout
+
+                        Graph graph ->
+                            insertKeyMapLayoutNode ( 0, 0 ) path layout graph
+                                |> Graph
+
+
+insertKeyMapNode : Coord -> InputPath -> KeyMap -> KeyMapGraph -> KeyMapGraph
+insertKeyMapNode loc path value graph =
+    case value of
+        Layout layout ->
+            insertKeyMapLayoutNode loc path layout graph
+
+        _ ->
+            case path of
+                [] ->
+                    let
+                        updatedLayout =
+                            Dict.get loc graph
+                                |> Maybe.withDefault emptyKeyLayout
+                                -- TODO: Have a sane default for inserting here? Maybe ALL indexes?
+                                |> insertKeyMapAtKey ( R, Index ) [] value
+                    in
+                        Dict.insert loc updatedLayout graph
+
+                action :: path ->
+                    case action of
+                        Move dir ->
+                            insertKeyMapNode (moveBy dir loc) path value graph
+
+                        Press key ->
+                            let
+                                updatedLayout =
+                                    Dict.get loc graph
+                                        |> Maybe.withDefault emptyKeyLayout
+                                        |> insertKeyMapAtKey key path value
+                            in
+                                Dict.insert loc updatedLayout graph
+
+
+insertKeyMapLayoutNode : Coord -> InputPath -> KeyLayout -> KeyMapGraph -> KeyMapGraph
+insertKeyMapLayoutNode loc path layout graph =
+    case path of
+        [] ->
+            Dict.insert loc layout graph
+
+        action :: path ->
+            case action of
+                Move dir ->
+                    insertKeyMapLayoutNode (moveBy dir loc) path layout graph
+
+                Press key ->
+                    let
+                        updatedLayout =
+                            Dict.get loc graph
+                                |> Maybe.withDefault emptyKeyLayout
+                                |> insertKeyMapAtKey key path (Layout layout)
+                    in
+                        Dict.insert loc updatedLayout graph
+
+
+insertKeyMapAtKey : KeyInput -> InputPath -> KeyMap -> KeyLayout -> KeyLayout
+insertKeyMapAtKey press path value layout =
+    let
+        index =
+            keyInputIndex press
+    in
+        case path of
+            [] ->
+                { layout | keys = Dict.insert index value layout.keys }
+
+            _ :: _ ->
+                let
+                    updatedKeyMap =
+                        Dict.get index layout.keys
+                            |> Maybe.withDefault Empty
+                            |> insertKeyMap path value
+                in
+                    { layout | keys = Dict.insert index updatedKeyMap layout.keys }
+
+
+type alias User =
+    { output : List OutputValue
+    , path : InputPath
+    }
+
+
+type alias Model =
+    { root : KeyMap
+    , user : User
+    , keys : List Keyboard.KeyCode
+    }
+
+
+init : ( Model, Cmd Msg )
+init =
+    ( { root = Graph Dict.empty, user = User [] [], keys = [] }, Cmd.none )
+
+
+
+---- UPDATE ----
+
+
+type Msg
+    = KeyDown Keyboard.KeyCode
+    | KeyUp Keyboard.KeyCode
+    | SetKeyMap KeyMap
+    | NoOp
+
+
+update : Msg -> Model -> ( Model, Cmd Msg )
+update msg model =
+    case msg of
+        KeyDown code ->
+            ( { model | keys = code :: model.keys }, Cmd.none )
+
+        KeyUp code ->
+            let
+                keys =
+                    model.keys
+                        |> List.filter (\c -> c /= code)
+            in
+                ( { model | keys = keys }, Cmd.none )
+
+        SetKeyMap keyMap ->
+            case model.user.path of
+                [] ->
+                    ( { model | root = keyMap }, Cmd.none )
+
+                path ->
+                    ( model, Cmd.none )
+
+        NoOp ->
+            ( model, Cmd.none )
+
+
+
+---- SUBSCRIPTIONS ----
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    Sub.batch
+        [ Keyboard.downs KeyDown
+        , Keyboard.ups KeyUp
+        ]
+
+
+
+---- VIEW ----
+
+
+keybindingFor : Keyboard.KeyCode -> Maybe KeyInput
 keybindingFor code =
     case code of
         65 ->
@@ -113,136 +417,6 @@ keybindingFor code =
             Nothing
 
 
-pageFor : Dir -> MapLayout -> NotePage
-pageFor direction ( w, n, e, s ) =
-    case direction of
-        W ->
-            w
-
-        N ->
-            n
-
-        E ->
-            e
-
-        S ->
-            s
-
-
-type alias KeyLayout =
-    { l : HandLayout
-    , r : HandLayout
-    }
-
-
-type NotePage
-    = Empty
-    | Output OutputValue
-    | Simple
-        { output : OutputValue
-        , layout : KeyLayout
-        }
-    | Location
-        { map : MapLayout
-        , output : OutputValue
-        , layout : KeyLayout
-        }
-
-
-pageOutput : NotePage -> OutputValue
-pageOutput page =
-    case page of
-        Empty ->
-            Unassigned
-
-        Output value ->
-            value
-
-        Simple page ->
-            page.output
-
-        Location page ->
-            page.output
-
-
-keyOutput : Key -> OutputValue
-keyOutput key =
-    case key of
-        Held note ->
-            pageOutput note
-
-        Open note ->
-            pageOutput note
-
-
-char : String -> Key
-char c =
-    Open (Output (Char c))
-
-
-rootPage =
-    Simple
-        { output = Unassigned
-        , layout =
-            { l = ( char "a", char "s", char "d", char "f" )
-            , r = ( char "j", char "k", char "l", char ";" )
-            }
-        }
-
-
-type alias Model =
-    { root : NotePage, current : NotePage, keys : List Keyboard.KeyCode }
-
-
-init : ( Model, Cmd Msg )
-init =
-    ( { root = rootPage, current = rootPage, keys = [] }, Cmd.none )
-
-
-
----- UPDATE ----
-
-
-type Msg
-    = NoOp
-    | KeyDown Keyboard.KeyCode
-    | KeyUp Keyboard.KeyCode
-
-
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
-    case msg of
-        KeyDown code ->
-            ( { model | keys = code :: model.keys }, Cmd.none )
-
-        KeyUp code ->
-            let
-                keys =
-                    model.keys
-                        |> List.filter (\c -> c /= code)
-            in
-                ( { model | keys = keys }, Cmd.none )
-
-        NoOp ->
-            ( model, Cmd.none )
-
-
-
----- SUBSCRIPTIONS ----
-
-
-subscriptions : Model -> Sub Msg
-subscriptions model =
-    Sub.batch
-        [ Keyboard.downs KeyDown
-        , Keyboard.ups KeyUp
-        ]
-
-
-
----- VIEW ----
-
-
 viewCodes : List Keyboard.KeyCode -> Html msg
 viewCodes codes =
     codes
@@ -251,8 +425,8 @@ viewCodes codes =
         |> text
 
 
-viewUserInput : List Keyboard.KeyCode -> Html msg
-viewUserInput codes =
+viewKeyInput : List Keyboard.KeyCode -> Html msg
+viewKeyInput codes =
     codes
         |> List.filterMap keybindingFor
         |> List.map toString
@@ -267,7 +441,7 @@ view model =
         [ img [ src "/logo.svg" ] []
         , h1 [] [ text "Your Elm App is working!" ]
         , viewCodes model.keys
-        , viewUserInput model.keys
+        , viewKeyInput model.keys
         ]
 
 
