@@ -116,277 +116,193 @@ type OutputValue
     | Char String
 
 
-type alias KeyLayout =
-    { output : OutputValue
-    , keys : Dict.Dict KeyInputIndex KeyMap
-    }
+type alias Keys =
+    Dict.Dict KeyInputIndex Key
 
 
-emptyKeyLayout : KeyLayout
-emptyKeyLayout =
-    KeyLayout Unassigned Dict.empty
+type Key
+    = KeyOutput OutputValue
+    | Path OutputValue GraphLayer
 
 
-type alias KeyMapGraph =
-    Dict.Dict Coord KeyLayout
+type GraphNode
+    = NodeOutput OutputValue
+    | Layout Keys
 
 
-type KeyMap
-    = Empty
-    | Output OutputValue
-    | Layout KeyLayout
-    | Graph KeyMapGraph
+type alias AtlasDict =
+    Dict.Dict Coord GraphNode
 
 
-insertKeyMap : InputPath -> KeyMap -> KeyMap -> KeyMap
-insertKeyMap path value map =
+type GraphLayer
+    = Simple GraphNode
+    | Atlas AtlasDict
+
+
+atlasInsert : AtlasDict -> Coord -> GraphNode -> AtlasDict
+atlasInsert map loc node =
+    Dict.insert loc node map
+
+
+upgradeToAtlas : GraphNode -> AtlasDict
+upgradeToAtlas node =
+    Dict.insert ( 0, 0 ) node Dict.empty
+
+
+insertOutputValue : InputPath -> OutputValue -> GraphLayer -> GraphLayer
+insertOutputValue path value layer =
+    insertOutputValueAt ( 0, 0 ) path value layer
+
+
+insertOutputValueAt : Coord -> InputPath -> OutputValue -> GraphLayer -> GraphLayer
+insertOutputValueAt loc path value layer =
     case path of
         [] ->
-            value
+            case layer of
+                Simple node ->
+                    case loc of
+                        ( 0, 0 ) ->
+                            Simple (NodeOutput value)
+
+                        _ ->
+                            upgradeToAtlas node
+                                |> insertOutputValueInAtlas loc path value
+                                |> Atlas
+
+                Atlas map ->
+                    insertOutputValueInAtlas loc path value map
+                        |> Atlas
 
         action :: path ->
             case action of
                 Move dir ->
-                    let
-                        location =
-                            moveBy dir ( 0, 0 )
-                    in
-                        case map of
-                            Empty ->
-                                insertKeyMap (action :: path) value (Graph Dict.empty)
+                    case layer of
+                        Simple node ->
+                            upgradeToAtlas node
+                                |> insertOutputValueInAtlas (moveBy dir loc) path value
+                                |> Atlas
 
-                            Output output ->
-                                insertKeyMapLayoutNode ( 0, 0 ) [] (KeyLayout output Dict.empty) Dict.empty
-                                    |> Graph
-                                    |> insertKeyMap (action :: path) value
-
-                            Layout layout ->
-                                insertKeyMapLayoutNode ( 0, 0 ) [] layout Dict.empty
-                                    |> Graph
-                                    |> insertKeyMap (action :: path) value
-
-                            Graph graph ->
-                                map
+                        Atlas map ->
+                            insertOutputValueInAtlas (moveBy dir loc) path value map
+                                |> Atlas
 
                 Press key ->
-                    case map of
-                        Empty ->
-                            insertKeyMapAtKey key path value emptyKeyLayout
-                                |> Layout
+                    case layer of
+                        Simple node ->
+                            insertOutputValueAtKey key path value node
+                                |> Simple
 
-                        Output output ->
-                            insertKeyMapAtKey key path value (KeyLayout output Dict.empty)
-                                |> Layout
-
-                        Layout layout ->
-                            insertKeyMapAtKey key path value layout
-                                |> Layout
-
-                        Graph graph ->
-                            let
-                                updatedLayout =
-                                    Dict.get ( 0, 0 ) graph
-                                        |> Maybe.withDefault emptyKeyLayout
-                                        |> insertKeyMapAtKey key path value
-                            in
-                                Dict.insert ( 0, 0 ) updatedLayout graph
-                                    |> Graph
+                        Atlas map ->
+                            Dict.get loc map
+                                |> Maybe.withDefault (Layout Dict.empty)
+                                |> insertOutputValueAtKey key path value
+                                |> atlasInsert map loc
+                                |> Atlas
 
 
-insertKeyLayout : InputPath -> KeyLayout -> KeyMap -> KeyMap
-insertKeyLayout path layout map =
+insertOutputValueInAtlas : Coord -> InputPath -> OutputValue -> AtlasDict -> AtlasDict
+insertOutputValueInAtlas loc path value map =
+    case path of
+        [] ->
+            atlasInsert map loc (NodeOutput value)
+
+        (Move dir) :: path ->
+            insertOutputValueInAtlas (moveBy dir loc) path value map
+
+        (Press key) :: path ->
+            Dict.get loc map
+                |> Maybe.withDefault (Layout Dict.empty)
+                |> insertOutputValueAtKey key path value
+                |> atlasInsert map loc
+
+
+insertOutputValueAtKey : KeyInput -> InputPath -> OutputValue -> GraphNode -> GraphNode
+insertOutputValueAtKey key path value node =
+    case node of
+        NodeOutput _ ->
+            insertOutputValueAtKey key path value (Layout Dict.empty)
+
+        Layout layout ->
+            let
+                index =
+                    keyInputIndex key
+
+                updatedKey =
+                    Dict.get index layout
+                        |> insertOutputValueThroughKey path value
+            in
+                Dict.insert index updatedKey layout
+                    |> Layout
+
+
+insertOutputValueThroughKey : InputPath -> OutputValue -> Maybe Key -> Key
+insertOutputValueThroughKey path value key =
+    case path of
+        [] ->
+            case key of
+                Just (Path _ layer) ->
+                    Path value layer
+
+                _ ->
+                    KeyOutput value
+
+        _ :: _ ->
+            case key of
+                Just (Path output layer) ->
+                    insertOutputValue path value layer
+                        |> Path output
+
+                Just (KeyOutput output) ->
+                    insertOutputValue path value (Simple (NodeOutput value))
+                        |> Path output
+
+                _ ->
+                    insertOutputValue path value (Simple (NodeOutput value))
+                        |> Path Unassigned
+
+
+getOutputValueForPath : InputPath -> GraphLayer -> OutputValue
+getOutputValueForPath path map =
     case path of
         [] ->
             case map of
-                Empty ->
-                    Layout layout
+                Simple (NodeOutput value) ->
+                    value
 
-                Output _ ->
-                    Layout layout
+                _ ->
+                    Unassigned
 
-                Layout _ ->
-                    Layout layout
+        (Move dir) :: path ->
+            getOutputValueAt (moveBy dir ( 0, 0 )) path map
 
-                Graph graph ->
-                    Graph (insertKeyMapLayoutNode ( 0, 0 ) [] layout graph)
+        (Press key) :: path ->
+            case map of
+                Simple (Layout layout) ->
+                    getOutputValueAtKey key path layout
 
-        action :: path ->
-            case action of
-                Move dir ->
-                    let
-                        location =
-                            moveBy dir ( 0, 0 )
-                    in
-                        case map of
-                            Empty ->
-                                insertKeyMapLayoutNode location path layout Dict.empty
-                                    |> Graph
-
-                            Output value ->
-                                Dict.insert ( 0, 0 ) (KeyLayout value Dict.empty) Dict.empty
-                                    |> insertKeyMapLayoutNode location path layout
-                                    |> Graph
-
-                            Layout origin ->
-                                Dict.insert ( 0, 0 ) origin Dict.empty
-                                    |> insertKeyMapLayoutNode location path layout
-                                    |> Graph
-
-                            Graph graph ->
-                                insertKeyMapLayoutNode location path layout graph
-                                    |> Graph
-
-                Press key ->
-                    case map of
-                        Empty ->
-                            emptyKeyLayout
-                                |> insertKeyMapAtKey key path (Layout layout)
-                                |> Layout
-
-                        Output value ->
-                            KeyLayout value Dict.empty
-                                |> insertKeyMapAtKey key path (Layout layout)
-                                |> Layout
-
-                        Layout layout ->
-                            layout
-                                |> insertKeyMapAtKey key path (Layout layout)
-                                |> Layout
-
-                        Graph graph ->
-                            insertKeyMapLayoutNode ( 0, 0 ) path layout graph
-                                |> Graph
+                _ ->
+                    -- TODO
+                    Unassigned
 
 
-insertKeyMapNode : Coord -> InputPath -> KeyMap -> KeyMapGraph -> KeyMapGraph
-insertKeyMapNode loc path value graph =
-    case value of
-        Layout layout ->
-            insertKeyMapLayoutNode loc path layout graph
-
-        _ ->
-            case path of
-                [] ->
-                    let
-                        updatedLayout =
-                            Dict.get loc graph
-                                |> Maybe.withDefault emptyKeyLayout
-                                -- TODO: Have a sane default for inserting here? Maybe ALL indexes?
-                                |> insertKeyMapAtKey ( R, Index ) [] value
-                    in
-                        Dict.insert loc updatedLayout graph
-
-                action :: path ->
-                    case action of
-                        Move dir ->
-                            insertKeyMapNode (moveBy dir loc) path value graph
-
-                        Press key ->
-                            let
-                                updatedLayout =
-                                    Dict.get loc graph
-                                        |> Maybe.withDefault emptyKeyLayout
-                                        |> insertKeyMapAtKey key path value
-                            in
-                                Dict.insert loc updatedLayout graph
+getOutputValueAt : Coord -> InputPath -> GraphLayer -> OutputValue
+getOutputValueAt loc path layer =
+    -- TODO
+    Unassigned
 
 
-insertKeyMapLayoutNode : Coord -> InputPath -> KeyLayout -> KeyMapGraph -> KeyMapGraph
-insertKeyMapLayoutNode loc path layout graph =
+getOutputValueAtKey : KeyInput -> InputPath -> Keys -> OutputValue
+getOutputValueAtKey key path layout =
     case path of
         [] ->
-            Dict.insert loc layout graph
+            case Dict.get (keyInputIndex key) layout of
+                Just (KeyOutput value) ->
+                    value
 
-        action :: path ->
-            case action of
-                Move dir ->
-                    insertKeyMapLayoutNode (moveBy dir loc) path layout graph
+                _ ->
+                    -- TODO
+                    Unassigned
 
-                Press key ->
-                    let
-                        updatedLayout =
-                            Dict.get loc graph
-                                |> Maybe.withDefault emptyKeyLayout
-                                |> insertKeyMapAtKey key path (Layout layout)
-                    in
-                        Dict.insert loc updatedLayout graph
-
-
-insertKeyMapAtKey : KeyInput -> InputPath -> KeyMap -> KeyLayout -> KeyLayout
-insertKeyMapAtKey press path value layout =
-    let
-        index =
-            keyInputIndex press
-    in
-        case path of
-            [] ->
-                { layout | keys = Dict.insert index value layout.keys }
-
-            _ :: _ ->
-                let
-                    updatedKeyMap =
-                        Dict.get index layout.keys
-                            |> Maybe.withDefault Empty
-                            |> insertKeyMap path value
-                in
-                    { layout | keys = Dict.insert index updatedKeyMap layout.keys }
-
-
-getKeyMapForPath : InputPath -> KeyMap -> KeyMap
-getKeyMapForPath path map =
-    case path of
-        [] ->
-            map
-
-        action :: path ->
-            case action of
-                Move dir ->
-                    map
-
-                Press key ->
-                    map
-
-
-getKeyMapByCoord : Coord -> InputPath -> KeyMap -> KeyMap
-getKeyMapByCoord loc path map =
-    case map of
-        Graph graph ->
-            case path of
-                [] ->
-                    case Dict.get loc graph of
-                        Just layout ->
-                            Layout layout
-
-                        Nothing ->
-                            map
-
-                action :: path ->
-                    case action of
-                        Move dir ->
-                            getKeyMapByCoord (moveBy dir loc) path map
-
-                        Press key ->
-                            case Dict.get loc graph of
-                                Just layout ->
-                                    getKeyMapAtKey key path layout
-
-                                Nothing ->
-                                    map
-
-        _ ->
-            map
-
-
-getKeyMapAtKey : KeyInput -> InputPath -> KeyLayout -> KeyMap
-getKeyMapAtKey key path layout =
-    let
-        map =
-            Dict.get (keyInputIndex key) layout.keys
-                |> Maybe.withDefault Empty
-    in
-        case path of
-            [] ->
-                map
-
-            _ :: _ ->
-                getKeyMapForPath path map
+        _ :: _ ->
+            -- TODO
+            Unassigned

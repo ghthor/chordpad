@@ -3,8 +3,9 @@ module Main exposing (..)
 import KeyMap exposing (..)
 import Dict
 import Set
-import Html exposing (Html, button, span, text, div, h1, ul, li)
-import Html.Attributes exposing (id, style, class, classList, src)
+import Html exposing (Html, form, input, button, span, text, div, h1, ul, li)
+import Html.Attributes exposing (id, type_, style, class, classList, src, placeholder, value, autofocus)
+import Html.Events exposing (onClick, onInput, onSubmit)
 import Keyboard
 
 
@@ -77,18 +78,25 @@ type alias KeyCodes =
     Set.Set Keyboard.KeyCode
 
 
+type InputMode
+    = Normal
+    | Edit OutputValue
+
+
 type alias Model =
-    { root : KeyMap
+    { keyCodes : KeyCodes
+    , root : GraphLayer
     , inputs : InputPath
-    , keyCodes : KeyCodes
+    , mode : InputMode
     }
 
 
 init : ( Model, Cmd Msg )
 init =
-    ( { root = Layout emptyKeyLayout
+    ( { keyCodes = Set.empty
+      , root = Simple (Layout Dict.empty)
       , inputs = []
-      , keyCodes = Set.empty
+      , mode = Normal
       }
     , Cmd.none
     )
@@ -98,17 +106,31 @@ init =
 ---- UPDATE ----
 
 
+type EditMsg
+    = Location InputPath
+    | Update OutputValue
+    | Done
+
+
+updateCharBinding : String -> Msg
+updateCharBinding str =
+    Binding (Update (Char str))
+
+
 type Msg
     = KeyDown Keyboard.KeyCode
     | KeyUp Keyboard.KeyCode
-    | SetKeyMap KeyMap
+    | Binding EditMsg
     | NoOp
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
-    case msg of
-        KeyDown code ->
+updateKeyDown : Keyboard.KeyCode -> Model -> ( Model, Cmd Msg )
+updateKeyDown code model =
+    case model.mode of
+        Edit _ ->
+            ( model, Cmd.none )
+
+        Normal ->
             if Set.member code model.keyCodes then
                 ( model, Cmd.none )
             else
@@ -131,7 +153,14 @@ update msg model =
                     , Cmd.none
                     )
 
-        KeyUp code ->
+
+updateKeyUp : Keyboard.KeyCode -> Model -> ( Model, Cmd Msg )
+updateKeyUp code model =
+    case model.mode of
+        Edit _ ->
+            ( model, Cmd.none )
+
+        Normal ->
             let
                 updatedInputs =
                     case keybindingFor code of
@@ -152,13 +181,47 @@ update msg model =
                 , Cmd.none
                 )
 
-        SetKeyMap keyMap ->
-            case model.inputs of
-                [] ->
-                    ( { model | root = keyMap }, Cmd.none )
 
-                path ->
-                    ( model, Cmd.none )
+updateBinding : EditMsg -> Model -> ( Model, Cmd Msg )
+updateBinding msg model =
+    case msg of
+        Location path ->
+            ( { model
+                | mode = Edit (getOutputValueForPath path model.root)
+                , inputs = path
+              }
+            , Cmd.none
+            )
+
+        Update value ->
+            ( { model
+                | mode = Edit value
+                , root = insertOutputValue model.inputs value model.root
+              }
+            , Cmd.none
+            )
+
+        Done ->
+            ( { model
+                | keyCodes = Set.empty
+                , mode = Normal
+                , inputs = []
+              }
+            , Cmd.none
+            )
+
+
+update : Msg -> Model -> ( Model, Cmd Msg )
+update msg model =
+    case msg of
+        KeyDown code ->
+            updateKeyDown code model
+
+        KeyUp code ->
+            updateKeyUp code model
+
+        Binding msg ->
+            updateBinding msg model
 
         NoOp ->
             ( model, Cmd.none )
@@ -170,46 +233,64 @@ update msg model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.batch
-        [ Keyboard.downs KeyDown
-        , Keyboard.ups KeyUp
-        ]
+    case model.mode of
+        Edit _ ->
+            Sub.none
+
+        Normal ->
+            Sub.batch
+                [ Keyboard.downs KeyDown
+                , Keyboard.ups KeyUp
+                ]
 
 
 
 ---- VIEW ----
 
 
-viewKeyMap : InputPath -> KeyMap -> Html msg
-viewKeyMap inputs map =
+viewGraphLayerRoot : Model -> Html Msg
+viewGraphLayerRoot model =
+    div [ class "key-map-root" ]
+        [ viewGraphLayer model.inputs model.root ]
+
+
+viewGraphLayer : InputPath -> GraphLayer -> Html Msg
+viewGraphLayer inputs map =
     case map of
-        Empty ->
-            div [] []
+        Simple (Layout layout) ->
+            viewKeys inputs layout
 
-        Output value ->
-            div [] []
-
-        Layout layout ->
-            viewKeyLayout inputs layout
-
-        Graph graph ->
+        _ ->
             div [] []
 
 
 type alias KeyView =
-    ( Bool, KeyMap )
+    { down : Bool
+    , keyPath : InputPath
+    , label : String
+    }
 
 
-toKeyView : InputPath -> KeyLayout -> KeyInput -> KeyView
-toKeyView inputs { keys } key =
-    ( keyInputExistsIn inputs key
-    , Dict.get (keyInputIndex key) keys
-        |> Maybe.withDefault Empty
-    )
+keyLabel : Keys -> KeyInput -> String
+keyLabel layout key =
+    case Dict.get (keyInputIndex key) layout of
+        Just (KeyOutput (Char str)) ->
+            str
+
+        _ ->
+            "+"
 
 
-viewKeyLayout : InputPath -> KeyLayout -> Html msg
-viewKeyLayout inputs layout =
+toKeyView : InputPath -> Keys -> KeyInput -> KeyView
+toKeyView inputs layout key =
+    { down = keyInputExistsIn inputs key
+    , keyPath = List.append inputs [ Press key ]
+    , label = keyLabel layout key
+    }
+
+
+viewKeys : InputPath -> Keys -> Html Msg
+viewKeys inputs layout =
     div [ class "key-layout" ]
         [ div [ class "left-hand" ]
             (List.map (toKeyView inputs layout) leftHand
@@ -222,38 +303,41 @@ viewKeyLayout inputs layout =
         ]
 
 
-viewKey : KeyView -> Html msg
-viewKey ( down, key ) =
-    case key of
-        Empty ->
-            viewEmptyKey down
-
-        Output value ->
-            case value of
-                Unassigned ->
-                    viewEmptyKey down
-
-                Char str ->
-                    viewKeyButton down str
-
-        _ ->
-            viewEmptyKey down
-
-
-viewEmptyKey : Bool -> Html msg
-viewEmptyKey down =
-    viewKeyButton down "+"
-
-
-viewKeyButton : Bool -> String -> Html msg
-viewKeyButton down label =
+viewKey : KeyView -> Html Msg
+viewKey { down, keyPath, label } =
     button
         [ classList
             [ ( "key-box", True )
             , ( "key-down", down )
             ]
+        , onClick (Binding (Location keyPath))
         ]
         [ text label ]
+
+
+viewBindingDialog : OutputValue -> Html Msg
+viewBindingDialog output =
+    let
+        currentValue =
+            case output of
+                Char str ->
+                    str
+
+                _ ->
+                    ""
+    in
+        -- FIXME Focus see: https://stackoverflow.com/questions/31901397/how-to-set-focus-on-an-element-in-elm
+        form [ class "key-map-binding-dialog", onSubmit (Binding Done) ]
+            [ input
+                [ type_ "text"
+                , autofocus True
+                , placeholder "Enter a Value"
+                , value currentValue
+                , onInput updateCharBinding
+                ]
+                []
+            , button [ type_ "submit" ] [ text "Done" ]
+            ]
 
 
 viewInputPath : InputPath -> Html msg
@@ -287,8 +371,12 @@ viewKeyInput codes =
 view : Model -> Html Msg
 view model =
     div [ id "app" ]
-        [ div [ class "key-map-root" ]
-            [ viewKeyMap model.inputs model.root ]
+        [ case model.mode of
+            Normal ->
+                viewGraphLayerRoot model
+
+            Edit value ->
+                viewBindingDialog value
         ]
 
 
