@@ -78,11 +78,6 @@ type alias KeyCodes =
     Set.Set Keyboard.KeyCode
 
 
-type InputMode
-    = Normal
-    | Edit OutputValue
-
-
 type alias Model =
     { keyCodes : KeyCodes
     , root : GraphLayer
@@ -106,22 +101,33 @@ init =
 ---- UPDATE ----
 
 
-type EditMsg
-    = Location InputPath
-    | Update OutputValue
-    | Done
+type InputMode
+    = Normal
+    | Edit EditMode
 
 
-updateCharBinding : String -> Msg
-updateCharBinding str =
-    Binding (Update (Char str))
+type EditMode
+    = EditKeyBinding ( InputPath, OutputValue )
+    | EditCorpus
+
+
+type UpdateGraphMsg
+    = UpdateBinding OutputValue
+    | UpdateRoot GraphLayer
 
 
 type Msg
     = KeyDown Keyboard.KeyCode
     | KeyUp Keyboard.KeyCode
-    | Binding EditMsg
+    | OpenEditor EditMode
+    | UpdateGraph UpdateGraphMsg
+    | CloseEditor
     | NoOp
+
+
+updateCharBinding : String -> Msg
+updateCharBinding str =
+    UpdateGraph (UpdateBinding (Char str))
 
 
 updateKeyDown : Keyboard.KeyCode -> Model -> ( Model, Cmd Msg )
@@ -182,33 +188,35 @@ updateKeyUp code model =
                 )
 
 
-updateBinding : EditMsg -> Model -> ( Model, Cmd Msg )
-updateBinding msg model =
+openEditor : EditMode -> Model -> ( Model, Cmd Msg )
+openEditor msg model =
     case msg of
-        Location path ->
+        EditKeyBinding ( path, value ) ->
             ( { model
-                | mode = Edit (getOutputValueForPath path model.root)
+                | mode = Edit (EditKeyBinding ( path, getOutputValueForPath path model.root ))
                 , inputs = path
               }
             , Cmd.none
             )
 
-        Update value ->
+        EditCorpus ->
+            -- TODO
+            ( model, Cmd.none )
+
+
+updateGraph : UpdateGraphMsg -> Model -> ( Model, Cmd Msg )
+updateGraph msg model =
+    case msg of
+        UpdateBinding value ->
             ( { model
-                | mode = Edit value
+                | mode = Edit (EditKeyBinding ( model.inputs, value ))
                 , root = insertOutputValue model.inputs value model.root
               }
             , Cmd.none
             )
 
-        Done ->
-            ( { model
-                | keyCodes = Set.empty
-                , mode = Normal
-                , inputs = []
-              }
-            , Cmd.none
-            )
+        UpdateRoot graph ->
+            ( { model | root = graph }, Cmd.none )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -220,8 +228,26 @@ update msg model =
         KeyUp code ->
             updateKeyUp code model
 
-        Binding msg ->
-            updateBinding msg model
+        OpenEditor mode ->
+            openEditor mode model
+
+        UpdateGraph msg ->
+            updateGraph msg model
+
+        CloseEditor ->
+            case model.mode of
+                Edit (EditKeyBinding _) ->
+                    ( { model
+                        | keyCodes = Set.empty
+                        , mode = Normal
+                        , inputs = []
+                      }
+                    , Cmd.none
+                    )
+
+                _ ->
+                    -- TODO
+                    ( model, Cmd.none )
 
         NoOp ->
             ( model, Cmd.none )
@@ -266,7 +292,7 @@ viewGraphLayer inputs map =
 
 type alias KeyView =
     { down : Bool
-    , keyPath : InputPath
+    , openEdit : Msg
     , label : String
     }
 
@@ -283,8 +309,9 @@ keyLabel layout key =
 
 toKeyView : InputPath -> Keys -> KeyInput -> KeyView
 toKeyView inputs layout key =
+    -- FIXME Use Existing OutputValue instead of Unassigned in openEdit msg
     { down = keyInputExistsIn inputs key
-    , keyPath = List.append inputs [ Press key ]
+    , openEdit = OpenEditor (EditKeyBinding ( List.append inputs [ Press key ], Unassigned ))
     , label = keyLabel layout key
     }
 
@@ -304,13 +331,13 @@ viewKeys inputs layout =
 
 
 viewKey : KeyView -> Html Msg
-viewKey { down, keyPath, label } =
+viewKey { down, openEdit, label } =
     button
         [ classList
             [ ( "key-box", True )
             , ( "key-down", down )
             ]
-        , onClick (Binding (Location keyPath))
+        , onClick openEdit
         ]
         [ text label ]
 
@@ -327,7 +354,7 @@ viewBindingDialog output =
                     ""
     in
         -- FIXME Focus see: https://stackoverflow.com/questions/31901397/how-to-set-focus-on-an-element-in-elm
-        form [ class "key-map-binding-dialog", onSubmit (Binding Done) ]
+        form [ class "key-map-binding-dialog", onSubmit CloseEditor ]
             [ input
                 [ type_ "text"
                 , autofocus True
@@ -375,8 +402,11 @@ view model =
             Normal ->
                 viewGraphLayerRoot model
 
-            Edit value ->
+            Edit (EditKeyBinding ( _, value )) ->
                 viewBindingDialog value
+
+            Edit EditCorpus ->
+                viewGraphLayerRoot model
         ]
 
 
