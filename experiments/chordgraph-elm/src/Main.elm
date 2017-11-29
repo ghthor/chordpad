@@ -285,29 +285,26 @@ viewGraphLayer : InputPath -> GraphLayer -> List (Html Msg)
 viewGraphLayer inputs map =
     case map of
         Simple node ->
-            [ viewGraphNode inputs ( [], node ) ]
+            [ viewGraphNode inputs ( ( 0, 0 ), node ) ]
 
         Atlas map ->
-            [ [ [ W, N ], [ N ], [ E, N ] ]
-            , [ [ W ], [], [ E ] ]
-            , [ [ W, S ], [ S ], [ E, S ] ]
-            ]
+            getNodesByViewPort ( ( 0, 0 ), 1 ) map
                 |> List.map
                     (\row ->
                         div [ class "graph-row" ]
-                            (List.map (getNodeWithMoveList map) row
+                            (row
                                 |> List.map (viewGraphNodeLocation inputs)
                             )
                     )
 
 
-viewGraphNodeLocation : InputPath -> Maybe ( List Dir, GraphNode ) -> Html Msg
+viewGraphNodeLocation : InputPath -> ( Coord, Maybe GraphNode ) -> Html Msg
 viewGraphNodeLocation inputs node =
     case node of
-        Just node ->
-            viewGraphNode inputs node
+        ( loc, Just node ) ->
+            viewGraphNode inputs ( loc, node )
 
-        Nothing ->
+        ( _, Nothing ) ->
             div [ class "graph-node" ] [ text "TODO: Empty Location" ]
 
 
@@ -327,7 +324,7 @@ graphNodeTransformScale path =
             0.2
 
 
-viewGraphNode : InputPath -> ( List Dir, GraphNode ) -> Html Msg
+viewGraphNode : InputPath -> ( Coord, GraphNode ) -> Html Msg
 viewGraphNode inputs node =
     case node of
         ( loc, Layout layout ) ->

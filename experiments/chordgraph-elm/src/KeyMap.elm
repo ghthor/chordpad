@@ -7,6 +7,11 @@ type alias Coord =
     ( Int, Int )
 
 
+dist : Coord -> Coord -> Int
+dist ( a_x, a_y ) ( b_x, b_y ) =
+    (abs a_x - b_x) + (abs a_y - b_y)
+
+
 type Dir
     = W
     | N
@@ -357,3 +362,37 @@ getNodeAt loc path map =
 
         dir :: path ->
             getNodeAt (moveBy dir loc) path map
+
+
+layerViewPort : Coord -> Int -> List (List Coord)
+layerViewPort ( x, y ) dxy =
+    let
+        width =
+            (2 * dxy) + 1
+
+        x_range =
+            List.range (x - dxy) (x + dxy)
+
+        y_range =
+            List.range (y - dxy) (y + dxy)
+                |> List.reverse
+    in
+        y_range
+            |> List.map
+                (\y ->
+                    List.repeat width y
+                        |> List.map2 (,) x_range
+                )
+
+
+getNodesByViewPort : ( Coord, Int ) -> AtlasDict -> List (List ( Coord, Maybe GraphNode ))
+getNodesByViewPort ( origin, range ) map =
+    layerViewPort origin range
+        |> List.map
+            (\row ->
+                row
+                    |> List.map
+                        (\loc ->
+                            ( loc, Dict.get loc map )
+                        )
+            )
