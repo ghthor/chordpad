@@ -30,6 +30,27 @@ moveBy dir ( x, y ) =
             ( x, y - 1 )
 
 
+moveE : Coord -> Coord
+moveE loc =
+    moveBy E loc
+
+
+moveS : Coord -> Coord
+moveS loc =
+    moveBy S loc
+
+
+moveByN : Int -> Dir -> Coord -> Coord
+moveByN mult dir loc =
+    case mult of
+        0 ->
+            loc
+
+        _ ->
+            moveBy dir loc
+                |> moveByN (mult - 1) dir
+
+
 type Hand
     = L
     | R
