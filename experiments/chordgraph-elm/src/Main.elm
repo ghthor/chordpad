@@ -1,6 +1,7 @@
 module Main exposing (..)
 
 import KeyMap exposing (..)
+import LayoutGen exposing (..)
 import Dict
 import Set
 import Html exposing (Html, form, input, button, span, text, div, h1, ul, li)
@@ -89,7 +90,7 @@ type alias Model =
 init : ( Model, Cmd Msg )
 init =
     ( { keyCodes = Set.empty
-      , root = Simple (Layout Dict.empty)
+      , root = LayoutGen.generateStarGraph
       , inputs = []
       , mode = Normal
       }
@@ -277,17 +278,69 @@ subscriptions model =
 viewGraphLayerRoot : Model -> Html Msg
 viewGraphLayerRoot model =
     div [ class "key-map-root" ]
-        [ viewGraphLayer model.inputs model.root ]
+        (viewGraphLayer model.inputs model.root)
 
 
-viewGraphLayer : InputPath -> GraphLayer -> Html Msg
+viewGraphLayer : InputPath -> GraphLayer -> List (Html Msg)
 viewGraphLayer inputs map =
     case map of
-        Simple (Layout layout) ->
-            viewKeys inputs layout
+        Simple node ->
+            [ viewGraphNode inputs ( [], node ) ]
+
+        Atlas map ->
+            [ [ [ W, N ], [ N ], [ E, N ] ]
+            , [ [ W ], [], [ E ] ]
+            , [ [ W, S ], [ S ], [ E, S ] ]
+            ]
+                |> List.map
+                    (\row ->
+                        div [ class "graph-row" ]
+                            (List.map (getNodeWithMoveList map) row
+                                |> List.map (viewGraphNodeLocation inputs)
+                            )
+                    )
+
+
+viewGraphNodeLocation : InputPath -> Maybe ( List Dir, GraphNode ) -> Html Msg
+viewGraphNodeLocation inputs node =
+    case node of
+        Just node ->
+            viewGraphNode inputs node
+
+        Nothing ->
+            div [ class "graph-node" ] [ text "TODO: Empty Location" ]
+
+
+graphNodeTransformScale : List Dir -> Float
+graphNodeTransformScale path =
+    case List.length path of
+        0 ->
+            1.0
+
+        1 ->
+            0.7
+
+        2 ->
+            0.5
 
         _ ->
-            div [] []
+            0.2
+
+
+viewGraphNode : InputPath -> ( List Dir, GraphNode ) -> Html Msg
+viewGraphNode inputs node =
+    case node of
+        ( loc, Layout layout ) ->
+            div
+                [ classList
+                    [ ( "graph-node", True )
+                    , ( "key-layout", True )
+                    ]
+                ]
+                (viewKeys inputs layout)
+
+        ( loc, NodeOutput output ) ->
+            div [ class "graph-node" ] [ text "TODO: Output Node" ]
 
 
 type alias KeyView =
@@ -316,18 +369,17 @@ toKeyView inputs layout key =
     }
 
 
-viewKeys : InputPath -> Keys -> Html Msg
+viewKeys : InputPath -> Keys -> List (Html Msg)
 viewKeys inputs layout =
-    div [ class "key-layout" ]
-        [ div [ class "left-hand" ]
-            (List.map (toKeyView inputs layout) leftHand
-                |> List.map viewKey
-            )
-        , div [ class "right-hand" ]
-            (List.map (toKeyView inputs layout) rightHand
-                |> List.map viewKey
-            )
-        ]
+    [ div [ class "left-hand" ]
+        (List.map (toKeyView inputs layout) leftHand
+            |> List.map viewKey
+        )
+    , div [ class "right-hand" ]
+        (List.map (toKeyView inputs layout) rightHand
+            |> List.map viewKey
+        )
+    ]
 
 
 viewKey : KeyView -> Html Msg

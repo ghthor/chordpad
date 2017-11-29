@@ -21,7 +21,7 @@ body {
 
 .key-map-root {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   flex-wrap: nowrap;
   justify-content: center;
   align-content: center;
@@ -41,17 +41,65 @@ body {
   align-items: center;
 }
 
-.key-layout {
-  background-color: #987284;
-
-  max-width: 700px;
-
+.graph-row {
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
   justify-content: center;
   align-content: center;
   align-items: center;
+}
+
+.graph-node {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  justify-content: center;
+  align-content: center;
+  align-items: center;
+
+  padding: 10px;
+}
+
+.graph-row-N .graph-node-W {
+    transform-origin: right bottom;
+}
+
+.graph-row-N .graph-node {
+    transform-origin: bottom;
+}
+
+.graph-row-N .graph-node-E {
+    transform-origin: left bottom;
+}
+
+.graph-row .graph-node-W {
+    transform-origin: right;
+}
+
+.graph-row .graph-node {
+    transform-origin: center;
+}
+
+.graph-row .graph-node-E {
+    transform-origin: left;
+}
+
+.graph-row-S .graph-node-W {
+    transform-origin: right top;
+}
+
+.graph-row-S .graph-node {
+    transform-origin: top;
+}
+
+.graph-row-S .graph-node-E {
+    transform-origin: left top;
+}
+
+.key-layout {
+  background-color: #987284;
+  max-width: 700px;
 }
 
 .key-layout .left-hand {
