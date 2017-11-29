@@ -327,3 +327,33 @@ getOutputValueAtKey key path layout =
         _ :: _ ->
             -- TODO
             Unassigned
+
+
+getNodeWithMoveList : AtlasDict -> List Dir -> Maybe ( List Dir, GraphNode )
+getNodeWithMoveList map path =
+    case getNodeByMoveList map path of
+        Just node ->
+            Just ( path, node )
+
+        Nothing ->
+            Nothing
+
+
+getNodeByMoveList : AtlasDict -> List Dir -> Maybe GraphNode
+getNodeByMoveList map path =
+    getNodeAt ( 0, 0 ) path map
+
+
+getNodeAt : Coord -> List Dir -> AtlasDict -> Maybe GraphNode
+getNodeAt loc path map =
+    case path of
+        [] ->
+            case Dict.get loc map of
+                Just node ->
+                    Just node
+
+                Nothing ->
+                    Nothing
+
+        dir :: path ->
+            getNodeAt (moveBy dir loc) path map
