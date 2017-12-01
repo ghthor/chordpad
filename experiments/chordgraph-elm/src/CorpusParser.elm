@@ -1,6 +1,7 @@
 module CorpusParser exposing (..)
 
 import Dict
+import Char
 
 
 type Section
@@ -9,11 +10,23 @@ type Section
     | End
 
 
-type alias Corpus =
+type alias CharCount =
+    Dict.Dict Char Int
+
+
+type alias WordDict =
     Dict.Dict Char (List String)
 
 
-insertWord : String -> Corpus -> Corpus
+type alias Corpus =
+    { chars : CharCount
+    , all : WordDict
+    , lowerCase : WordDict
+    , upperCase : WordDict
+    }
+
+
+insertWord : String -> WordDict -> WordDict
 insertWord word corpus =
     case String.uncons word of
         Nothing ->
@@ -27,12 +40,51 @@ insertWord word corpus =
                 Dict.insert start updatedWords corpus
 
 
-create : List String -> Corpus
-create words =
+newCharCount : String -> CharCount
+newCharCount src =
+    insertChar src Dict.empty
+
+
+insertChar : String -> CharCount -> CharCount
+insertChar src count =
+    case String.uncons src of
+        Nothing ->
+            count
+
+        Just ( c, src ) ->
+            count
+                |> Dict.insert c
+                    (Dict.get c count
+                        |> Maybe.withDefault 0
+                        |> (+) 1
+                    )
+                |> insertChar src
+
+
+newWordDict : List String -> WordDict
+newWordDict words =
     List.foldl insertWord Dict.empty words
 
 
-toSortedList : Corpus -> List ( Char, List String )
-toSortedList corpus =
-    Dict.toList corpus
+toSortedList : WordDict -> List ( Char, List String )
+toSortedList words =
+    Dict.toList words
         |> List.sortBy (Tuple.second >> List.length)
+        |> List.reverse
+
+
+new : String -> Corpus
+new src =
+    let
+        allWords =
+            newWordDict <| String.words <| src
+    in
+        { chars = newCharCount src
+        , all = allWords
+        , lowerCase =
+            allWords
+                |> Dict.filter (\c v -> Char.isLower c)
+        , upperCase =
+            allWords
+                |> Dict.filter (\c v -> Char.isUpper c)
+        }

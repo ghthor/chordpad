@@ -130,7 +130,7 @@ init =
       , inputs = []
       , mode = Normal
       , rawCorpus = corpusDefault
-      , corpus = Dict.empty
+      , corpus = CorpusParser.new corpusDefault
       }
     , Cmd.none
     )
@@ -266,7 +266,7 @@ updateCorpus : String -> Model -> ( Model, Cmd Msg )
 updateCorpus str model =
     ( { model
         | rawCorpus = str
-        , corpus = CorpusParser.create <| String.words <| str
+        , corpus = CorpusParser.new <| str
       }
     , Cmd.none
     )
@@ -498,8 +498,18 @@ viewCorpusEditor { rawCorpus, corpus } =
         [ textarea
             [ onInput UpdateCorpus ]
             [ text rawCorpus ]
-        , div [ class "corpus-debug" ] [ text <| toString <| CorpusParser.toSortedList corpus ]
-        , button [ type_ "submit" ] [ text "Done" ]
+        , div [] [ button [ type_ "submit" ] [ text "Done" ] ]
+        , viewCorpus corpus
+        ]
+
+
+viewCorpus : CorpusParser.Corpus -> Html never
+viewCorpus corpus =
+    div [ class "corpus-model" ]
+        [ div [ class "corpus-chars" ] [ text <| toString corpus.chars ]
+        , div [ class "corpus-all" ] [ text <| toString <| CorpusParser.toSortedList corpus.all ]
+        , div [ class "corpus-lower" ] [ text <| toString <| CorpusParser.toSortedList corpus.lowerCase ]
+        , div [ class "corpus-upper" ] [ text <| toString <| CorpusParser.toSortedList corpus.upperCase ]
         ]
 
 
