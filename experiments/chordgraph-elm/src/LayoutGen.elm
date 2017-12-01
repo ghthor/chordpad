@@ -8,12 +8,6 @@ import KeyMap exposing (..)
 import Dict
 
 
-type MapSize
-    = OneByOne
-    | ThreeByThree
-    | FiveByFive
-
-
 type CellType
     = E -- Empty
     | L -- Layout
