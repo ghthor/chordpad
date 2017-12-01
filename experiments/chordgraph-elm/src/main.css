@@ -41,6 +41,14 @@ body {
   align-items: center;
 }
 
+.corpus-editor textarea {
+  background-color: black;
+  color: white;
+
+  width: 90%;
+  height: 500px;
+}
+
 .graph-row {
   display: flex;
   flex-direction: row;

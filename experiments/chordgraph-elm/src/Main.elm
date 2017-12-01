@@ -2,12 +2,46 @@ module Main exposing (..)
 
 import KeyMap exposing (..)
 import LayoutGen exposing (..)
+import CorpusParser
 import Dict
 import Set
-import Html exposing (Html, form, input, button, span, text, div, h1, ul, li)
-import Html.Attributes exposing (id, type_, style, class, classList, src, placeholder, value, autofocus)
+import Html
+    exposing
+        ( Html
+        , form
+        , textarea
+        , input
+        , button
+        , span
+        , text
+        , div
+        , h1
+        , ul
+        , li
+        )
+import Html.Attributes
+    exposing
+        ( id
+        , type_
+        , style
+        , class
+        , classList
+        , src
+        , placeholder
+        , value
+        , autofocus
+        )
 import Html.Events exposing (onClick, onInput, onSubmit)
 import Keyboard
+
+
+corpusDefault : String
+corpusDefault =
+    """
+This is useful for holding JSON or other
+content that has "quotation marks".
+"""
+
 
 
 ---- MODEL ----
@@ -84,6 +118,8 @@ type alias Model =
     , root : GraphLayer
     , inputs : InputPath
     , mode : InputMode
+    , rawCorpus : String
+    , corpus : CorpusParser.Corpus
     }
 
 
@@ -93,6 +129,8 @@ init =
       , root = LayoutGen.generateSoftEdgeGraph
       , inputs = []
       , mode = Normal
+      , rawCorpus = corpusDefault
+      , corpus = Dict.empty
       }
     , Cmd.none
     )
@@ -121,6 +159,7 @@ type Msg
     = KeyDown Keyboard.KeyCode
     | KeyUp Keyboard.KeyCode
     | OpenEditor EditMode
+    | UpdateCorpus String
     | UpdateGraph UpdateGraphMsg
     | CloseEditor
     | NoOp
@@ -201,8 +240,11 @@ openEditor msg model =
             )
 
         EditCorpus ->
-            -- TODO
-            ( model, Cmd.none )
+            ( { model
+                | mode = Edit <| EditCorpus
+              }
+            , Cmd.none
+            )
 
 
 updateGraph : UpdateGraphMsg -> Model -> ( Model, Cmd Msg )
@@ -220,6 +262,16 @@ updateGraph msg model =
             ( { model | root = graph }, Cmd.none )
 
 
+updateCorpus : String -> Model -> ( Model, Cmd Msg )
+updateCorpus str model =
+    ( { model
+        | rawCorpus = str
+        , corpus = CorpusParser.create <| String.words <| str
+      }
+    , Cmd.none
+    )
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
@@ -231,6 +283,9 @@ update msg model =
 
         OpenEditor mode ->
             openEditor mode model
+
+        UpdateCorpus str ->
+            updateCorpus str model
 
         UpdateGraph msg ->
             updateGraph msg model
@@ -246,8 +301,18 @@ update msg model =
                     , Cmd.none
                     )
 
+                Edit EditCorpus ->
+                    -- TODO Start a Graph update Task
+                    ( { model
+                        | keyCodes = Set.empty
+                        , mode = Normal
+                        , inputs = []
+                      }
+                    , Cmd.none
+                    )
+
                 _ ->
-                    -- TODO
+                    -- TODO Panic?
                     ( model, Cmd.none )
 
         NoOp ->
@@ -427,6 +492,17 @@ viewBindingDialog output =
             ]
 
 
+viewCorpusEditor : { rawCorpus : String, corpus : CorpusParser.Corpus } -> Html Msg
+viewCorpusEditor { rawCorpus, corpus } =
+    form [ class "corpus-editor", onSubmit CloseEditor ]
+        [ textarea
+            [ onInput UpdateCorpus ]
+            [ text rawCorpus ]
+        , div [ class "corpus-debug" ] [ text <| toString <| CorpusParser.toSortedList corpus ]
+        , button [ type_ "submit" ] [ text "Done" ]
+        ]
+
+
 viewInputPath : InputPath -> Html msg
 viewInputPath path =
     path
@@ -457,17 +533,22 @@ viewKeyInput codes =
 
 view : Model -> Html Msg
 view model =
-    div [ id "app" ]
-        [ case model.mode of
+    div [ id "app" ] <|
+        case model.mode of
             Normal ->
-                viewGraphLayerRoot model
+                [ viewGraphLayerRoot model
+                , div
+                    [ class "control-panel" ]
+                    [ button [ onClick <| OpenEditor <| EditCorpus ]
+                        [ text "Open Editor" ]
+                    ]
+                ]
 
             Edit (EditKeyBinding ( _, value )) ->
-                viewBindingDialog value
+                [ viewBindingDialog value ]
 
             Edit EditCorpus ->
-                viewGraphLayerRoot model
-        ]
+                [ viewCorpusEditor { rawCorpus = model.rawCorpus, corpus = model.corpus } ]
 
 
 
