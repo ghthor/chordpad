@@ -51,6 +51,8 @@ body {
 }
 
 .graph-node {
+  min-width: 540px;
+
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
@@ -99,7 +101,6 @@ body {
 
 .key-layout {
   background-color: #987284;
-  max-width: 700px;
 }
 
 .key-layout .left-hand {
@@ -134,10 +135,10 @@ body {
   border-width: 3px;
   border-radius: 5px;
 
-  min-width: 70px;
-  min-height: 70px;
+  min-width: 50px;
+  min-height: 50px;
 
-  font-size: 50px;
+  font-size: 20px;
   font-family: monospace;
   margin: 5px;
   padding: 10px;
