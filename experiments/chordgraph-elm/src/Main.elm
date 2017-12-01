@@ -506,10 +506,28 @@ viewCorpusEditor { rawCorpus, corpus } =
 viewCorpus : CorpusParser.Corpus -> Html never
 viewCorpus corpus =
     div [ class "corpus-model" ]
-        [ div [ class "corpus-chars" ] [ text <| toString corpus.chars ]
-        , div [ class "corpus-all" ] [ text <| toString <| CorpusParser.toSortedList corpus.all ]
-        , div [ class "corpus-lower" ] [ text <| toString <| CorpusParser.toSortedList corpus.lowerCase ]
-        , div [ class "corpus-upper" ] [ text <| toString <| CorpusParser.toSortedList corpus.upperCase ]
+        [ div [ class "corpus-chars" ]
+            [ h1 [] [ text "Char Count's" ]
+            , text <| toString corpus.chars
+            ]
+
+        -- , div [ class "corpus-all" ] [ text <| toString <| CorpusParser.toSortedList corpus.all ]
+        , div [ class "corpus-lower" ]
+            [ h1 [] [ text "Lower Case" ]
+            , text <| toString <| CorpusParser.toSortedList corpus.lowerCase
+            ]
+        , div [ class "corpus-upper" ]
+            [ h1 [] [ text "Upper Case" ]
+            , text <| toString <| CorpusParser.toSortedList corpus.upperCase
+            ]
+        , div [ class "corpus-digits" ]
+            [ h1 [] [ text "Digit's" ]
+            , text <| toString <| CorpusParser.toSortedList corpus.digits
+            ]
+        , div [ class "corpus-symbols" ]
+            [ h1 [] [ text "Symbol's" ]
+            , text <| toString <| CorpusParser.toSortedList corpus.symbols
+            ]
         ]
 
 

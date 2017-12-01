@@ -23,6 +23,8 @@ type alias Corpus =
     , all : WordDict
     , lowerCase : WordDict
     , upperCase : WordDict
+    , digits : WordDict
+    , symbols : WordDict
     }
 
 
@@ -73,6 +75,13 @@ toSortedList words =
         |> List.reverse
 
 
+charIsSymbol : Char -> Bool
+charIsSymbol c =
+    (not <| Char.isLower c)
+        && (not <| Char.isUpper c)
+        && (not <| Char.isDigit c)
+
+
 new : String -> Corpus
 new src =
     let
@@ -87,4 +96,10 @@ new src =
         , upperCase =
             allWords
                 |> Dict.filter (\c v -> Char.isUpper c)
+        , digits =
+            allWords
+                |> Dict.filter (\c v -> Char.isDigit c)
+        , symbols =
+            allWords
+                |> Dict.filter (\c v -> charIsSymbol c)
         }
