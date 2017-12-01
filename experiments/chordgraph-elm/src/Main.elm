@@ -283,34 +283,43 @@ viewGraphLayerRoot model =
 
 viewGraphLayer : InputPath -> GraphLayer -> List (Html Msg)
 viewGraphLayer inputs map =
-    case map of
-        Simple node ->
-            [ viewGraphNode inputs ( ( 0, 0 ), node ) ]
+    let
+        origin =
+            ( 0, 0 )
 
-        Atlas map ->
-            getNodesByViewPort ( ( 0, 0 ), 1 ) map
-                |> List.map
-                    (\row ->
-                        div [ class "graph-row" ]
-                            (row
-                                |> List.map (viewGraphNodeLocation inputs)
-                            )
-                    )
+        user =
+            ( origin
+            , inputs
+            )
+    in
+        case map of
+            Simple node ->
+                [ viewGraphNode user ( origin, node ) ]
+
+            Atlas map ->
+                getNodesByViewPort ( origin, 2 ) map
+                    |> List.map
+                        (\row ->
+                            div [ class "graph-row" ]
+                                (row
+                                    |> List.map (viewGraphNodeLocation user)
+                                )
+                        )
 
 
-viewGraphNodeLocation : InputPath -> ( Coord, Maybe GraphNode ) -> Html Msg
-viewGraphNodeLocation inputs node =
+viewGraphNodeLocation : ( Coord, InputPath ) -> ( Coord, Maybe GraphNode ) -> Html Msg
+viewGraphNodeLocation user node =
     case node of
         ( loc, Just node ) ->
-            viewGraphNode inputs ( loc, node )
+            viewGraphNode user ( loc, node )
 
-        ( _, Nothing ) ->
-            div [ class "graph-node" ] [ text "TODO: Empty Location" ]
+        ( loc, Nothing ) ->
+            div [ class "graph-node" ] [ text (toString loc), text "TODO: Empty Location" ]
 
 
-graphNodeTransformScale : List Dir -> Float
-graphNodeTransformScale path =
-    case List.length path of
+graphNodeTransformScale : Coord -> Coord -> Float
+graphNodeTransformScale origin loc =
+    case dist origin loc of
         0 ->
             1.0
 
@@ -324,8 +333,8 @@ graphNodeTransformScale path =
             0.2
 
 
-viewGraphNode : InputPath -> ( Coord, GraphNode ) -> Html Msg
-viewGraphNode inputs node =
+viewGraphNode : ( Coord, InputPath ) -> ( Coord, GraphNode ) -> Html Msg
+viewGraphNode ( origin, inputs ) node =
     case node of
         ( loc, Layout layout ) ->
             div
@@ -334,10 +343,12 @@ viewGraphNode inputs node =
                     , ( "key-layout", True )
                     ]
                 ]
-                (viewKeys inputs layout)
+                ((text (toString loc))
+                    :: (viewKeys inputs layout)
+                )
 
         ( loc, NodeOutput output ) ->
-            div [ class "graph-node" ] [ text "TODO: Output Node" ]
+            div [ class "graph-node" ] [ text (toString loc), text "TODO: Output Node" ]
 
 
 type alias KeyView =
