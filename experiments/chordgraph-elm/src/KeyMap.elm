@@ -9,7 +9,7 @@ type alias Coord =
 
 dist : Coord -> Coord -> Int
 dist ( a_x, a_y ) ( b_x, b_y ) =
-    (abs a_x - b_x) + (abs a_y - b_y)
+    abs (b_x - a_x) + abs (b_y - a_y)
 
 
 type Dir
