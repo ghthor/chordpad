@@ -90,7 +90,7 @@ type alias Model =
 init : ( Model, Cmd Msg )
 init =
     ( { keyCodes = Set.empty
-      , root = LayoutGen.generateStarGraph
+      , root = LayoutGen.generateSoftEdgeGraph
       , inputs = []
       , mode = Normal
       }

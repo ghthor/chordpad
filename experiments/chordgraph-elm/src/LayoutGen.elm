@@ -1,4 +1,8 @@
-module LayoutGen exposing (generateStarGraph)
+module LayoutGen
+    exposing
+        ( generateStarGraph
+        , generateSoftEdgeGraph
+        )
 
 import KeyMap exposing (..)
 import Dict
@@ -36,17 +40,22 @@ starGraph =
 
 softEdgeStarGraph : CellMap
 softEdgeStarGraph =
-    [ [ E, E, O, E, E ]
-    , [ E, O, L, O, E ]
+    [ [ E, O, L, O, E ]
+    , [ O, L, L, L, O ]
+    , [ L, L, L, L, L ]
     , [ O, L, L, L, O ]
     , [ E, O, L, O, E ]
-    , [ E, E, O, E, E ]
     ]
 
 
 generateStarGraph : GraphLayer
 generateStarGraph =
     generateGraphByCells starGraph
+
+
+generateSoftEdgeGraph : GraphLayer
+generateSoftEdgeGraph =
+    generateGraphByCells softEdgeStarGraph
 
 
 generateGraphByCells : CellMap -> GraphLayer
