@@ -54,6 +54,10 @@ body {
   text-align: left;
 }
 
+.corpus-model li {
+  font-family: monospace;
+}
+
 .graph-row {
   display: flex;
   flex-direction: row;
