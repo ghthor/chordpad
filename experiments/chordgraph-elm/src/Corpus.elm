@@ -85,6 +85,13 @@ toSortedList words =
         |> List.reverse
 
 
+toSortedCharCount : CharCount -> List ( Char, Int )
+toSortedCharCount chars =
+    Dict.toList chars
+        |> List.sortBy Tuple.second
+        |> List.reverse
+
+
 charIsSymbol : Char -> Bool
 charIsSymbol c =
     (not <| Char.isLower c)
@@ -118,7 +125,7 @@ new src =
 viewCharCount : CharCount -> Html never
 viewCharCount chars =
     ol []
-        (Dict.toList chars
+        (toSortedCharCount chars
             |> List.map
                 (\char ->
                     li [] [ text <| toString char ]
