@@ -24,36 +24,100 @@ type alias CharCount =
     Dict.Dict Char Int
 
 
-type alias WordDict =
-    Dict.Dict Char (List String)
+type alias WordTail =
+    { tail : String
+    , count : Int
+    }
+
+
+type alias WordTails =
+    Dict.Dict String WordTail
+
+
+type alias WordHead =
+    { head : Char
+    , count : Int
+    , tails : Dict.Dict String WordTail
+    }
+
+
+type alias WordHeads =
+    Dict.Dict Char WordHead
 
 
 type alias Corpus =
     { chars : CharCount
-    , all : WordDict
-    , lowerCase : WordDict
-    , upperCase : WordDict
-    , digits : WordDict
-    , symbols : WordDict
+    , all : WordHeads
+    , lowerCase : WordHeads
+    , upperCase : WordHeads
+    , digits : WordHeads
+    , symbols : WordHeads
     }
 
 
-insertWord : String -> WordDict -> WordDict
-insertWord word corpus =
+newWordHeads : List String -> WordHeads
+newWordHeads words =
+    List.foldl insertWord Dict.empty words
+
+
+newWordTails : String -> WordTails
+newWordTails tail =
+    updateWordTail tail Dict.empty
+
+
+updateWordTail : String -> WordTails -> WordTails
+updateWordTail tail tails =
+    Dict.get tail tails
+        |> (\node ->
+                case node of
+                    Nothing ->
+                        { tail = tail
+                        , count = 1
+                        }
+
+                    Just tail ->
+                        { tail | count = tail.count + 1 }
+           )
+        |> (\node ->
+                Dict.insert tail node tails
+           )
+
+
+updateWordHead : ( Char, String ) -> WordHeads -> WordHeads
+updateWordHead ( head, tail ) words =
+    Dict.get head words
+        |> (\word ->
+                case word of
+                    Nothing ->
+                        { head = head
+                        , count = 1
+                        , tails = newWordTails tail
+                        }
+
+                    Just word ->
+                        { word
+                            | count = word.count + 1
+                            , tails = updateWordTail tail word.tails
+                        }
+           )
+        |> (\word ->
+                Dict.insert head word words
+           )
+
+
+insertWord : String -> WordHeads -> WordHeads
+insertWord word heads =
     case String.uncons word of
         Nothing ->
-            corpus
+            heads
 
-        Just ( start, word ) ->
-            let
-                updatedWords =
-                    word :: (Dict.get start corpus |> Maybe.withDefault [])
-            in
-                Dict.insert start updatedWords corpus
+        Just word ->
+            updateWordHead word heads
 
 
 newCharCount : String -> CharCount
 newCharCount src =
+    -- TODO Optimization** use String.foldl instead of uncons
     insertChar src Dict.empty
 
 
@@ -73,15 +137,11 @@ insertChar src count =
                 |> insertChar src
 
 
-newWordDict : List String -> WordDict
-newWordDict words =
-    List.foldl insertWord Dict.empty words
-
-
-toSortedList : WordDict -> List ( Char, List String )
+toSortedList : WordHeads -> List WordHead
 toSortedList words =
     Dict.toList words
-        |> List.sortBy (Tuple.second >> List.length)
+        |> List.map Tuple.second
+        |> List.sortBy .count
         |> List.reverse
 
 
@@ -103,7 +163,7 @@ new : String -> Corpus
 new src =
     let
         allWords =
-            newWordDict <| String.words <| src
+            newWordHeads <| String.words <| src
     in
         { chars = newCharCount src
         , all = allWords
@@ -133,8 +193,8 @@ viewCharCount chars =
         )
 
 
-viewWordDict : WordDict -> Html never
-viewWordDict words =
+viewWordHeads : WordHeads -> Html never
+viewWordHeads words =
     ol []
         (toSortedList words
             |> List.map
@@ -153,22 +213,22 @@ view corpus =
             ]
         , div [ class "corpus-lower" ]
             [ h1 [] [ text "Lower Case" ]
-            , viewWordDict corpus.lowerCase
+            , viewWordHeads corpus.lowerCase
             ]
         , div [ class "corpus-upper" ]
             [ h1 [] [ text "Upper Case" ]
-            , viewWordDict corpus.upperCase
+            , viewWordHeads corpus.upperCase
             ]
         , div [ class "corpus-digits" ]
             [ h1 [] [ text "Digit's" ]
-            , viewWordDict corpus.digits
+            , viewWordHeads corpus.digits
             ]
         , div [ class "corpus-symbols" ]
             [ h1 [] [ text "Symbol's" ]
-            , viewWordDict corpus.symbols
+            , viewWordHeads corpus.symbols
             ]
         , div [ class "corpus-all" ]
             [ h1 [] [ text "All Entries" ]
-            , viewWordDict corpus.all
+            , viewWordHeads corpus.all
             ]
         ]
