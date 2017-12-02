@@ -115,6 +115,17 @@ new src =
         }
 
 
+viewCharCount : CharCount -> Html never
+viewCharCount chars =
+    ol []
+        (Dict.toList chars
+            |> List.map
+                (\char ->
+                    li [] [ text <| toString char ]
+                )
+        )
+
+
 viewWordDict : WordDict -> Html never
 viewWordDict words =
     ol []
@@ -131,7 +142,7 @@ view corpus =
     div [ class "corpus-model" ]
         [ div [ class "corpus-chars" ]
             [ h1 [] [ text "Char Count's" ]
-            , text <| toString corpus.chars
+            , viewCharCount corpus.chars
             ]
         , div [ class "corpus-lower" ]
             [ h1 [] [ text "Lower Case" ]
