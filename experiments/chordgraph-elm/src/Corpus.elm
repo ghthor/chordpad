@@ -137,9 +137,17 @@ insertChar src count =
                 |> insertChar src
 
 
-toSortedList : WordHeads -> List WordHead
-toSortedList words =
+toSortedHeads : WordHeads -> List WordHead
+toSortedHeads words =
     Dict.toList words
+        |> List.map Tuple.second
+        |> List.sortBy .count
+        |> List.reverse
+
+
+toSortedTails : WordTails -> List WordTail
+toSortedTails tails =
+    Dict.toList tails
         |> List.map Tuple.second
         |> List.sortBy .count
         |> List.reverse
@@ -196,10 +204,24 @@ viewCharCount chars =
 viewWordHeads : WordHeads -> Html never
 viewWordHeads words =
     ol []
-        (toSortedList words
+        (toSortedHeads words
             |> List.map
                 (\word ->
-                    li [] [ text <| toString word ]
+                    li []
+                        [ text <| toString ( word.head, word.count )
+                        , viewWordTails word.tails
+                        ]
+                )
+        )
+
+
+viewWordTails : WordTails -> Html never
+viewWordTails tails =
+    ol []
+        (toSortedTails tails
+            |> List.map
+                (\{ tail, count } ->
+                    li [] [ text <| toString ( tail, count ) ]
                 )
         )
 
