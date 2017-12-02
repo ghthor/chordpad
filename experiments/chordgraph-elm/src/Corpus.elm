@@ -1,4 +1,4 @@
-module CorpusParser exposing (..)
+module Corpus exposing (..)
 
 import Dict
 import Char

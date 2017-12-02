@@ -2,7 +2,7 @@ module Main exposing (..)
 
 import KeyMap exposing (..)
 import LayoutGen exposing (..)
-import CorpusParser
+import Corpus
 import Dict
 import Set
 import Html
@@ -119,7 +119,7 @@ type alias Model =
     , inputs : InputPath
     , mode : InputMode
     , rawCorpus : String
-    , corpus : CorpusParser.Corpus
+    , corpus : Corpus.Corpus
     }
 
 
@@ -130,7 +130,7 @@ init =
       , inputs = []
       , mode = Normal
       , rawCorpus = corpusDefault
-      , corpus = CorpusParser.new corpusDefault
+      , corpus = Corpus.new corpusDefault
       }
     , Cmd.none
     )
@@ -266,7 +266,7 @@ updateCorpus : String -> Model -> ( Model, Cmd Msg )
 updateCorpus str model =
     ( { model
         | rawCorpus = str
-        , corpus = CorpusParser.new <| str
+        , corpus = Corpus.new <| str
       }
     , Cmd.none
     )
@@ -492,7 +492,7 @@ viewBindingDialog output =
             ]
 
 
-viewCorpusEditor : { rawCorpus : String, corpus : CorpusParser.Corpus } -> Html Msg
+viewCorpusEditor : { rawCorpus : String, corpus : Corpus.Corpus } -> Html Msg
 viewCorpusEditor { rawCorpus, corpus } =
     form [ class "corpus-editor", onSubmit CloseEditor ]
         [ textarea
@@ -503,7 +503,7 @@ viewCorpusEditor { rawCorpus, corpus } =
         ]
 
 
-viewCorpus : CorpusParser.Corpus -> Html never
+viewCorpus : Corpus.Corpus -> Html never
 viewCorpus corpus =
     div [ class "corpus-model" ]
         [ div [ class "corpus-chars" ]
@@ -511,22 +511,22 @@ viewCorpus corpus =
             , text <| toString corpus.chars
             ]
 
-        -- , div [ class "corpus-all" ] [ text <| toString <| CorpusParser.toSortedList corpus.all ]
+        -- , div [ class "corpus-all" ] [ text <| toString <| Corpus.toSortedList corpus.all ]
         , div [ class "corpus-lower" ]
             [ h1 [] [ text "Lower Case" ]
-            , text <| toString <| CorpusParser.toSortedList corpus.lowerCase
+            , text <| toString <| Corpus.toSortedList corpus.lowerCase
             ]
         , div [ class "corpus-upper" ]
             [ h1 [] [ text "Upper Case" ]
-            , text <| toString <| CorpusParser.toSortedList corpus.upperCase
+            , text <| toString <| Corpus.toSortedList corpus.upperCase
             ]
         , div [ class "corpus-digits" ]
             [ h1 [] [ text "Digit's" ]
-            , text <| toString <| CorpusParser.toSortedList corpus.digits
+            , text <| toString <| Corpus.toSortedList corpus.digits
             ]
         , div [ class "corpus-symbols" ]
             [ h1 [] [ text "Symbol's" ]
-            , text <| toString <| CorpusParser.toSortedList corpus.symbols
+            , text <| toString <| Corpus.toSortedList corpus.symbols
             ]
         ]
 
