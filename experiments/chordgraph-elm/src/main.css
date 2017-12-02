@@ -49,6 +49,11 @@ body {
   height: 500px;
 }
 
+.corpus-model {
+  margin-left: 100px;
+  text-align: left;
+}
+
 .graph-row {
   display: flex;
   flex-direction: row;

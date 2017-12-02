@@ -499,35 +499,7 @@ viewCorpusEditor { rawCorpus, corpus } =
             [ onInput UpdateCorpus ]
             [ text rawCorpus ]
         , div [] [ button [ type_ "submit" ] [ text "Done" ] ]
-        , viewCorpus corpus
-        ]
-
-
-viewCorpus : Corpus.Corpus -> Html never
-viewCorpus corpus =
-    div [ class "corpus-model" ]
-        [ div [ class "corpus-chars" ]
-            [ h1 [] [ text "Char Count's" ]
-            , text <| toString corpus.chars
-            ]
-
-        -- , div [ class "corpus-all" ] [ text <| toString <| Corpus.toSortedList corpus.all ]
-        , div [ class "corpus-lower" ]
-            [ h1 [] [ text "Lower Case" ]
-            , text <| toString <| Corpus.toSortedList corpus.lowerCase
-            ]
-        , div [ class "corpus-upper" ]
-            [ h1 [] [ text "Upper Case" ]
-            , text <| toString <| Corpus.toSortedList corpus.upperCase
-            ]
-        , div [ class "corpus-digits" ]
-            [ h1 [] [ text "Digit's" ]
-            , text <| toString <| Corpus.toSortedList corpus.digits
-            ]
-        , div [ class "corpus-symbols" ]
-            [ h1 [] [ text "Symbol's" ]
-            , text <| toString <| Corpus.toSortedList corpus.symbols
-            ]
+        , Corpus.view corpus
         ]
 
 
