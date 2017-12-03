@@ -364,9 +364,17 @@ getNodeAt loc path map =
             getNodeAt (moveBy dir loc) path map
 
 
-layerViewPort : Coord -> Int -> List (List Coord)
-layerViewPort ( x, y ) dxy =
+layerViewPort : Coord -> ViewPortSize -> List (List Coord)
+layerViewPort ( x, y ) size =
     let
+        dxy =
+            case size of
+                ThreeByThree ->
+                    1
+
+                FiveByFive ->
+                    2
+
         width =
             (2 * dxy) + 1
 
@@ -385,9 +393,14 @@ layerViewPort ( x, y ) dxy =
                 )
 
 
-getNodesByViewPort : ( Coord, Int ) -> AtlasDict -> List (List ( Coord, Maybe GraphNode ))
-getNodesByViewPort ( origin, range ) map =
-    layerViewPort origin range
+type ViewPortSize
+    = ThreeByThree
+    | FiveByFive
+
+
+getNodesByViewPort : ( Coord, ViewPortSize ) -> AtlasDict -> List (List ( Coord, Maybe GraphNode ))
+getNodesByViewPort ( origin, size ) map =
+    layerViewPort origin size
         |> List.map
             (\row ->
                 row

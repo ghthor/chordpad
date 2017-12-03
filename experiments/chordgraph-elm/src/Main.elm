@@ -362,7 +362,7 @@ viewGraphLayer inputs map =
                 [ viewGraphNode user ( origin, node ) ]
 
             Atlas map ->
-                getNodesByViewPort ( origin, 2 ) map
+                getNodesByViewPort ( origin, KeyMap.FiveByFive ) map
                     |> List.map
                         (\row ->
                             div [ class "graph-row" ]
