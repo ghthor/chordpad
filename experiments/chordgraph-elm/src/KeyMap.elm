@@ -45,6 +45,16 @@ moveS loc =
     moveBy S loc
 
 
+moveList : List Dir -> Coord -> Coord
+moveList dirs loc =
+    case dirs of
+        [] ->
+            loc
+
+        dir :: dirs ->
+            moveList dirs <| moveBy dir loc
+
+
 moveByN : Int -> Dir -> Coord -> Coord
 moveByN mult dir loc =
     case mult of
