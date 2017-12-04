@@ -189,6 +189,28 @@ type OutputValue
     | OutputString String
 
 
+type alias OutputChain =
+    List OutputValue
+
+
+outputToString : OutputChain -> String
+outputToString outputs =
+    outputs
+        |> List.filterMap
+            (\value ->
+                case value of
+                    OutputChar char ->
+                        Just <| String.fromChar char
+
+                    OutputString str ->
+                        Just str
+
+                    Unassigned ->
+                        Nothing
+            )
+        |> String.concat
+
+
 type alias Keys =
     Dict.Dict KeyInputIndex Key
 
@@ -206,42 +228,30 @@ type alias GraphLayer =
     Dict.Dict Coord GraphNode
 
 
-getOutputValueForPath : UserInputs -> GraphLayer -> OutputValue
-getOutputValueForPath path layer =
-    case path of
+getOutputForInputs : Coord -> UserInputs -> GraphLayer -> OutputChain
+getOutputForInputs loc inputs layer =
+    case inputs of
         [] ->
-            -- TODO
-            Unassigned
+            []
 
-        (Move dir) :: path ->
-            getOutputValueAt (moveBy dir ( 0, 0 )) path layer
+        (Move dir) :: inputs ->
+            getOutputForInputs (moveBy dir loc) inputs layer
 
-        (Press key) :: path ->
-            -- TODO
-            Unassigned
+        (Press key) :: inputs ->
+            case Dict.get loc layer of
+                Just (Layout node) ->
+                    case Dict.get (keyInputIndex key) node of
+                        Just (Path value layer) ->
+                            value :: getOutputForInputs origin inputs layer
 
+                        Just (KeyOutput value) ->
+                            [ value ]
 
-getOutputValueAt : Coord -> UserInputs -> GraphLayer -> OutputValue
-getOutputValueAt loc path layer =
-    -- TODO
-    Unassigned
+                        Nothing ->
+                            []
 
-
-getOutputValueAtKey : KeyInput -> UserInputs -> Keys -> OutputValue
-getOutputValueAtKey key path layout =
-    case path of
-        [] ->
-            case Dict.get (keyInputIndex key) layout of
-                Just (KeyOutput value) ->
-                    value
-
-                _ ->
-                    -- TODO
-                    Unassigned
-
-        _ :: _ ->
-            -- TODO
-            Unassigned
+                Nothing ->
+                    []
 
 
 getNodeWithMoveList : GraphLayer -> List Dir -> Maybe ( List Dir, GraphNode )

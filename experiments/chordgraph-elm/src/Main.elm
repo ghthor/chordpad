@@ -570,6 +570,7 @@ view model =
                     [ class "control-panel" ]
                     [ button [ onClick <| OpenEditor <| EditCorpus ]
                         [ text "Open Editor" ]
+                    , div [] [ text <| outputToString <| getOutputForInputs origin model.inputs model.root ]
                     ]
                 ]
 
