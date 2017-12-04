@@ -1,103 +1,77 @@
-module LayoutGen
-    exposing
-        ( generateStarGraph
-        , generateSoftEdgeGraph
-        )
+module LayoutGen exposing (..)
 
 import KeyMap exposing (..)
+import Corpus
 import Dict
+import Char
 
 
-type CellType
-    = E -- Empty
-    | L -- Layout
-    | O -- Output
+type Cell
+    = Coord
 
 
-type alias CellRow =
-    List CellType
+generateLayerUsingCharCounts : Corpus.CharCount -> GraphLayer
+generateLayerUsingCharCounts chars =
+    chars
+        |> Corpus.toSortedCharCount
+        |> List.map
+            (\( char, count ) ->
+                Char <| String.fromChar char
+            )
+        |> createLayerWithOutputs
 
 
-type alias CellMap =
-    List CellRow
+createLayerWithOutputs : List OutputValue -> GraphLayer
+createLayerWithOutputs outputs =
+    insertLayoutsWithOutputs
+        [ origin
+        , moveBy W origin
+        , moveBy E origin
+        , moveBy S origin
+        , moveBy N origin
+        , moveList [ W, S ] origin
+        , moveList [ W, N ] origin
+        , moveList [ E, S ] origin
+        , moveList [ E, N ] origin
+        , moveList [ S, S ] origin
+        , moveList [ N, N ] origin
+        ]
+        outputs
+        Dict.empty
 
 
-starGraph : CellMap
-starGraph =
-    [ [ E, E, E, E, E ]
-    , [ E, E, L, E, E ]
-    , [ E, L, L, L, E ]
-    , [ E, E, L, E, E ]
-    , [ E, E, E, E, E ]
-    ]
-
-
-softEdgeStarGraph : CellMap
-softEdgeStarGraph =
-    [ [ E, O, L, O, E ]
-    , [ O, L, L, L, O ]
-    , [ L, L, L, L, L ]
-    , [ O, L, L, L, O ]
-    , [ E, O, L, O, E ]
-    ]
-
-
-generateStarGraph : GraphLayer
-generateStarGraph =
-    generateGraphByCells starGraph
-
-
-generateSoftEdgeGraph : GraphLayer
-generateSoftEdgeGraph =
-    generateGraphByCells softEdgeStarGraph
-
-
-generateGraphByCells : CellMap -> GraphLayer
-generateGraphByCells cells =
-    genByCol ( -2, 2 ) cells Dict.empty
-        |> Atlas
-
-
-genByCol : Coord -> CellMap -> AtlasDict -> AtlasDict
-genByCol tl col map =
-    case col of
+insertLayoutsWithOutputs : List Coord -> List OutputValue -> GraphLayer -> GraphLayer
+insertLayoutsWithOutputs locations outputs layer =
+    case locations of
         [] ->
-            map
+            layer
 
-        row :: rest ->
-            genByRow tl row map
-                |> genByCol (moveS tl) rest
+        location :: locations ->
+            case outputs of
+                [] ->
+                    layer
 
-
-genByRow : Coord -> CellRow -> AtlasDict -> AtlasDict
-genByRow loc row map =
-    case row of
-        [] ->
-            map
-
-        cell :: rest ->
-            insertCell loc cell map
-                |> genByRow (moveE loc) rest
+                _ ->
+                    layer
+                        |> Dict.insert location (Layout <| layoutWithOutputs <| List.take 8 outputs)
+                        |> insertLayoutsWithOutputs locations (List.drop 8 outputs)
 
 
-insertCell : Coord -> CellType -> AtlasDict -> AtlasDict
-insertCell loc cell map =
-    case (nodeForCell cell) of
-        Just cell ->
-            Dict.insert loc cell map
-
-        Nothing ->
-            map
-
-
-nodeForCell : CellType -> Maybe GraphNode
-nodeForCell cell =
-    case cell of
-        E ->
-            Nothing
-
-        L ->
-            Just (Layout Dict.empty)
-
-        O ->
-            Just (NodeOutput Unassigned)
+layoutWithOutputs : List OutputValue -> Keys
+layoutWithOutputs outputs =
+    List.map2 (,)
+        [ ( R, Index )
+        , ( L, Index )
+        , ( R, Middle )
+        , ( L, Middle )
+        , ( R, Ring )
+        , ( L, Ring )
+        , ( R, Pinky )
+        , ( L, Pinky )
+        ]
+        outputs
+        |> List.foldl
+            (\( key, output ) keys ->
+                Dict.insert (keyInputIndex key) (KeyOutput output) keys
+            )
+            Dict.empty

@@ -35,12 +35,17 @@ import Html.Events exposing (onClick, onInput, onSubmit)
 import Keyboard
 
 
-corpusDefault : String
-corpusDefault =
+rawCorpusDefault : String
+rawCorpusDefault =
     """
 This is useful for holding JSON or other
 content that has "quotation marks".
 """
+
+
+corpusDefault : Corpus.Corpus
+corpusDefault =
+    Corpus.new rawCorpusDefault
 
 
 
@@ -116,7 +121,7 @@ type alias KeyCodes =
 type alias Model =
     { keyCodes : KeyCodes
     , root : GraphLayer
-    , inputs : InputPath
+    , inputs : UserInputs
     , mode : InputMode
     , rawCorpus : String
     , corpus : Corpus.Corpus
@@ -126,11 +131,11 @@ type alias Model =
 init : ( Model, Cmd Msg )
 init =
     ( { keyCodes = Set.empty
-      , root = LayoutGen.generateSoftEdgeGraph
+      , root = generateLayerUsingCharCounts corpusDefault.chars
       , inputs = []
-      , mode = Normal
-      , rawCorpus = corpusDefault
-      , corpus = Corpus.new corpusDefault
+      , mode = Edit EditCorpus
+      , rawCorpus = rawCorpusDefault
+      , corpus = corpusDefault
       }
     , Cmd.none
     )
@@ -146,7 +151,7 @@ type InputMode
 
 
 type EditMode
-    = EditKeyBinding ( InputPath, OutputValue )
+    = EditKeyBinding ( UserInputs, OutputValue )
     | EditCorpus
 
 
@@ -233,7 +238,7 @@ openEditor msg model =
     case msg of
         EditKeyBinding ( path, value ) ->
             ( { model
-                | mode = Edit (EditKeyBinding ( path, getOutputValueForPath path model.root ))
+                | mode = Edit (EditKeyBinding ( path, value ))
                 , inputs = path
               }
             , Cmd.none
@@ -251,9 +256,9 @@ updateGraph : UpdateGraphMsg -> Model -> ( Model, Cmd Msg )
 updateGraph msg model =
     case msg of
         UpdateBinding value ->
+            -- TODO Update Graph
             ( { model
                 | mode = Edit (EditKeyBinding ( model.inputs, value ))
-                , root = insertOutputValue model.inputs value model.root
               }
             , Cmd.none
             )
@@ -264,12 +269,17 @@ updateGraph msg model =
 
 updateCorpus : String -> Model -> ( Model, Cmd Msg )
 updateCorpus str model =
-    ( { model
-        | rawCorpus = str
-        , corpus = Corpus.new <| str
-      }
-    , Cmd.none
-    )
+    let
+        corpus =
+            Corpus.new str
+    in
+        ( { model
+            | rawCorpus = str
+            , corpus = corpus
+            , root = LayoutGen.generateLayerUsingCharCounts corpus.chars
+          }
+        , Cmd.none
+        )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -346,8 +356,8 @@ viewGraphLayerRoot model =
         (viewGraphLayer model.inputs model.root)
 
 
-viewGraphLayer : InputPath -> GraphLayer -> List (Html Msg)
-viewGraphLayer inputs map =
+viewGraphLayer : UserInputs -> GraphLayer -> List (Html Msg)
+viewGraphLayer inputs layer =
     let
         origin =
             ( 0, 0 )
@@ -357,22 +367,17 @@ viewGraphLayer inputs map =
             , inputs
             )
     in
-        case map of
-            Simple node ->
-                [ viewGraphNode user ( origin, node ) ]
-
-            Atlas map ->
-                getNodesByViewPort ( origin, KeyMap.FiveByFive ) map
-                    |> List.map
-                        (\row ->
-                            div [ class "graph-row" ]
-                                (row
-                                    |> List.map (viewGraphNodeLocation user)
-                                )
+        getNodesByViewPort ( origin, KeyMap.FiveByFive ) layer
+            |> List.map
+                (\row ->
+                    div [ class "graph-row" ]
+                        (row
+                            |> List.map (viewGraphNodeLocation user)
                         )
+                )
 
 
-viewGraphNodeLocation : ( Coord, InputPath ) -> ( Coord, Maybe GraphNode ) -> Html Msg
+viewGraphNodeLocation : ( Coord, UserInputs ) -> ( Coord, Maybe GraphNode ) -> Html Msg
 viewGraphNodeLocation user node =
     case node of
         ( loc, Just node ) ->
@@ -382,7 +387,7 @@ viewGraphNodeLocation user node =
             div [ class "graph-node" ] [ text (toString loc), text "TODO: Empty Location" ]
 
 
-viewGraphNode : ( Coord, InputPath ) -> ( Coord, GraphNode ) -> Html Msg
+viewGraphNode : ( Coord, UserInputs ) -> ( Coord, GraphNode ) -> Html Msg
 viewGraphNode ( origin, inputs ) node =
     case node of
         ( loc, Layout layout ) ->
@@ -417,7 +422,7 @@ keyLabel layout key =
             "+"
 
 
-viewKeys : InputPath -> Keys -> List (Html Msg)
+viewKeys : UserInputs -> Keys -> List (Html Msg)
 viewKeys inputs layout =
     [ ( leftHand, "left-hand" ), ( rightHand, "right-hand" ) ]
         |> (List.map
@@ -486,8 +491,8 @@ viewCorpusEditor { rawCorpus, corpus } =
         ]
 
 
-viewInputPath : InputPath -> Html msg
-viewInputPath path =
+viewUserInputs : UserInputs -> Html msg
+viewUserInputs path =
     path
         |> List.map toString
         |> List.map text

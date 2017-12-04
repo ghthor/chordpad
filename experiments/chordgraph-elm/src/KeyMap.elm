@@ -7,6 +7,11 @@ type alias Coord =
     ( Int, Int )
 
 
+origin : Coord
+origin =
+    ( 0, 0 )
+
+
 dist : Coord -> Coord -> Int
 dist ( a_x, a_y ) ( b_x, b_y ) =
     abs (b_x - a_x) + abs (b_y - a_y)
@@ -153,7 +158,7 @@ type UserInput
     | Press KeyInput
 
 
-type alias InputPath =
+type alias UserInputs =
     List UserInput
 
 
@@ -167,7 +172,7 @@ toKeyInput input =
             Nothing
 
 
-keyInputExistsIn : InputPath -> KeyInput -> Bool
+keyInputExistsIn : UserInputs -> KeyInput -> Bool
 keyInputExistsIn path key =
     let
         index =
@@ -197,168 +202,32 @@ type GraphNode
     | Layout Keys
 
 
-type alias AtlasDict =
+type alias GraphLayer =
     Dict.Dict Coord GraphNode
 
 
-type GraphLayer
-    = Simple GraphNode
-    | Atlas AtlasDict
-
-
-atlasInsert : AtlasDict -> Coord -> GraphNode -> AtlasDict
-atlasInsert map loc node =
-    Dict.insert loc node map
-
-
-upgradeToAtlas : GraphNode -> AtlasDict
-upgradeToAtlas node =
-    Dict.insert ( 0, 0 ) node Dict.empty
-
-
-insertOutputValue : InputPath -> OutputValue -> GraphLayer -> GraphLayer
-insertOutputValue path value layer =
-    insertOutputValueAt ( 0, 0 ) path value layer
-
-
-insertOutputValueAt : Coord -> InputPath -> OutputValue -> GraphLayer -> GraphLayer
-insertOutputValueAt loc path value layer =
+getOutputValueForPath : UserInputs -> GraphLayer -> OutputValue
+getOutputValueForPath path layer =
     case path of
         [] ->
-            case layer of
-                Simple node ->
-                    case loc of
-                        ( 0, 0 ) ->
-                            Simple (NodeOutput value)
-
-                        _ ->
-                            upgradeToAtlas node
-                                |> insertOutputValueInAtlas loc path value
-                                |> Atlas
-
-                Atlas map ->
-                    insertOutputValueInAtlas loc path value map
-                        |> Atlas
-
-        action :: path ->
-            case action of
-                Move dir ->
-                    case layer of
-                        Simple node ->
-                            upgradeToAtlas node
-                                |> insertOutputValueInAtlas (moveBy dir loc) path value
-                                |> Atlas
-
-                        Atlas map ->
-                            insertOutputValueInAtlas (moveBy dir loc) path value map
-                                |> Atlas
-
-                Press key ->
-                    case layer of
-                        Simple node ->
-                            insertOutputValueAtKey key path value node
-                                |> Simple
-
-                        Atlas map ->
-                            Dict.get loc map
-                                |> Maybe.withDefault (Layout Dict.empty)
-                                |> insertOutputValueAtKey key path value
-                                |> atlasInsert map loc
-                                |> Atlas
-
-
-insertOutputValueInAtlas : Coord -> InputPath -> OutputValue -> AtlasDict -> AtlasDict
-insertOutputValueInAtlas loc path value map =
-    case path of
-        [] ->
-            atlasInsert map loc (NodeOutput value)
+            -- TODO
+            Unassigned
 
         (Move dir) :: path ->
-            insertOutputValueInAtlas (moveBy dir loc) path value map
+            getOutputValueAt (moveBy dir ( 0, 0 )) path layer
 
         (Press key) :: path ->
-            Dict.get loc map
-                |> Maybe.withDefault (Layout Dict.empty)
-                |> insertOutputValueAtKey key path value
-                |> atlasInsert map loc
+            -- TODO
+            Unassigned
 
 
-insertOutputValueAtKey : KeyInput -> InputPath -> OutputValue -> GraphNode -> GraphNode
-insertOutputValueAtKey key path value node =
-    case node of
-        NodeOutput _ ->
-            insertOutputValueAtKey key path value (Layout Dict.empty)
-
-        Layout layout ->
-            let
-                index =
-                    keyInputIndex key
-
-                updatedKey =
-                    Dict.get index layout
-                        |> insertOutputValueThroughKey path value
-            in
-                Dict.insert index updatedKey layout
-                    |> Layout
-
-
-insertOutputValueThroughKey : InputPath -> OutputValue -> Maybe Key -> Key
-insertOutputValueThroughKey path value key =
-    case path of
-        [] ->
-            case key of
-                Just (Path _ layer) ->
-                    Path value layer
-
-                _ ->
-                    KeyOutput value
-
-        _ :: _ ->
-            case key of
-                Just (Path output layer) ->
-                    insertOutputValue path value layer
-                        |> Path output
-
-                Just (KeyOutput output) ->
-                    insertOutputValue path value (Simple (NodeOutput value))
-                        |> Path output
-
-                _ ->
-                    insertOutputValue path value (Simple (NodeOutput value))
-                        |> Path Unassigned
-
-
-getOutputValueForPath : InputPath -> GraphLayer -> OutputValue
-getOutputValueForPath path map =
-    case path of
-        [] ->
-            case map of
-                Simple (NodeOutput value) ->
-                    value
-
-                _ ->
-                    Unassigned
-
-        (Move dir) :: path ->
-            getOutputValueAt (moveBy dir ( 0, 0 )) path map
-
-        (Press key) :: path ->
-            case map of
-                Simple (Layout layout) ->
-                    getOutputValueAtKey key path layout
-
-                _ ->
-                    -- TODO
-                    Unassigned
-
-
-getOutputValueAt : Coord -> InputPath -> GraphLayer -> OutputValue
+getOutputValueAt : Coord -> UserInputs -> GraphLayer -> OutputValue
 getOutputValueAt loc path layer =
     -- TODO
     Unassigned
 
 
-getOutputValueAtKey : KeyInput -> InputPath -> Keys -> OutputValue
+getOutputValueAtKey : KeyInput -> UserInputs -> Keys -> OutputValue
 getOutputValueAtKey key path layout =
     case path of
         [] ->
@@ -375,9 +244,9 @@ getOutputValueAtKey key path layout =
             Unassigned
 
 
-getNodeWithMoveList : AtlasDict -> List Dir -> Maybe ( List Dir, GraphNode )
-getNodeWithMoveList map path =
-    case getNodeByMoveList map path of
+getNodeWithMoveList : GraphLayer -> List Dir -> Maybe ( List Dir, GraphNode )
+getNodeWithMoveList layer path =
+    case getNodeByMoveList layer path of
         Just node ->
             Just ( path, node )
 
@@ -385,16 +254,16 @@ getNodeWithMoveList map path =
             Nothing
 
 
-getNodeByMoveList : AtlasDict -> List Dir -> Maybe GraphNode
-getNodeByMoveList map path =
-    getNodeAt ( 0, 0 ) path map
+getNodeByMoveList : GraphLayer -> List Dir -> Maybe GraphNode
+getNodeByMoveList layer path =
+    getNodeAt ( 0, 0 ) path layer
 
 
-getNodeAt : Coord -> List Dir -> AtlasDict -> Maybe GraphNode
-getNodeAt loc path map =
+getNodeAt : Coord -> List Dir -> GraphLayer -> Maybe GraphNode
+getNodeAt loc path layer =
     case path of
         [] ->
-            case Dict.get loc map of
+            case Dict.get loc layer of
                 Just node ->
                     Just node
 
@@ -402,7 +271,7 @@ getNodeAt loc path map =
                     Nothing
 
         dir :: path ->
-            getNodeAt (moveBy dir loc) path map
+            getNodeAt (moveBy dir loc) path layer
 
 
 layerViewPort : Coord -> ViewPortSize -> List (List Coord)
@@ -439,14 +308,14 @@ type ViewPortSize
     | FiveByFive
 
 
-getNodesByViewPort : ( Coord, ViewPortSize ) -> AtlasDict -> List (List ( Coord, Maybe GraphNode ))
-getNodesByViewPort ( origin, size ) map =
+getNodesByViewPort : ( Coord, ViewPortSize ) -> GraphLayer -> List (List ( Coord, Maybe GraphNode ))
+getNodesByViewPort ( origin, size ) layer =
     layerViewPort origin size
         |> List.map
             (\row ->
                 row
                     |> List.map
                         (\loc ->
-                            ( loc, Dict.get loc map )
+                            ( loc, Dict.get loc layer )
                         )
             )
