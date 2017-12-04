@@ -83,32 +83,44 @@ rightHand =
     ]
 
 
-keybindingFor : Keyboard.KeyCode -> Maybe KeyInput
+keybindingFor : Keyboard.KeyCode -> Maybe UserInput
 keybindingFor code =
     case code of
         65 ->
-            Just ( L, Pinky )
+            Just <| Press ( L, Pinky )
 
         83 ->
-            Just ( L, Ring )
+            Just <| Press ( L, Ring )
 
         68 ->
-            Just ( L, Middle )
+            Just <| Press ( L, Middle )
 
         70 ->
-            Just ( L, Index )
+            Just <| Press ( L, Index )
 
         74 ->
-            Just ( R, Index )
+            Just <| Press ( R, Index )
 
         75 ->
-            Just ( R, Middle )
+            Just <| Press ( R, Middle )
 
         76 ->
-            Just ( R, Ring )
+            Just <| Press ( R, Ring )
 
         186 ->
-            Just ( R, Pinky )
+            Just <| Press ( R, Pinky )
+
+        91 ->
+            Just <| Move W
+
+        92 ->
+            Just <| Move E
+
+        32 ->
+            Just <| Move N
+
+        13 ->
+            Just <| Move S
 
         _ ->
             Nothing
@@ -188,11 +200,14 @@ updateKeyDown code model =
                 let
                     updatedInputs =
                         case keybindingFor code of
-                            Just key ->
+                            Just (Press key) ->
                                 if keyInputExistsIn model.inputs key then
                                     model.inputs
                                 else
                                     List.append model.inputs [ Press key ]
+
+                            Just (Move dir) ->
+                                model.inputs ++ [ Move dir ]
 
                             Nothing ->
                                 model.inputs
@@ -218,7 +233,10 @@ updateKeyUp code model =
                         Nothing ->
                             model.inputs
 
-                        Just key ->
+                        Just (Move _) ->
+                            model.inputs
+
+                        Just (Press key) ->
                             -- Only clear the inputs if the Key is part of the current set
                             if keyInputExistsIn model.inputs key then
                                 []
@@ -353,23 +371,21 @@ subscriptions model =
 viewGraphLayerRoot : Model -> Html Msg
 viewGraphLayerRoot model =
     div [ class "key-map-root" ]
-        (viewGraphLayer model.inputs <|
-            getLayerByInputs origin model.inputs model.root
-        )
+        (viewGraphLayer model.inputs model.root)
 
 
 viewGraphLayer : UserInputs -> GraphLayer -> List (Html Msg)
 viewGraphLayer inputs layer =
     let
-        origin =
-            ( 0, 0 )
+        view =
+            getViewPortUsingInput KeyMap.FiveByFive origin inputs layer
 
         user =
-            ( origin
+            ( view.center
             , inputs
             )
     in
-        getNodesByViewPort ( origin, KeyMap.FiveByFive ) layer
+        view.nodes
             |> List.map
                 (\row ->
                     div [ class "graph-row" ]

@@ -333,9 +333,41 @@ type ViewPortSize
     | FiveByFive
 
 
-getNodesByViewPort : ( Coord, ViewPortSize ) -> GraphLayer -> List (List ( Coord, Maybe GraphNode ))
-getNodesByViewPort ( origin, size ) layer =
-    layerViewPort origin size
+type alias ViewPort =
+    { center : Coord
+    , nodes : List (List ( Coord, Maybe GraphNode ))
+    }
+
+
+getViewPortUsingInput : ViewPortSize -> Coord -> UserInputs -> GraphLayer -> ViewPort
+getViewPortUsingInput size loc inputs layer =
+    case inputs of
+        [] ->
+            getViewPort ( loc, size ) layer
+
+        (Move dir) :: inputs ->
+            getViewPortUsingInput size (moveBy dir loc) inputs layer
+
+        (Press key) :: inputs ->
+            case Dict.get loc layer of
+                Just (Layout node) ->
+                    case Dict.get (keyInputIndex key) node of
+                        Just (KeyOutput _) ->
+                            getViewPort ( loc, size ) layer
+
+                        Just (Path _ layer) ->
+                            getViewPortUsingInput size origin inputs layer
+
+                        Nothing ->
+                            getViewPort ( loc, size ) layer
+
+                Nothing ->
+                    getViewPort ( loc, size ) layer
+
+
+getViewPort : ( Coord, ViewPortSize ) -> GraphLayer -> ViewPort
+getViewPort ( center, size ) layer =
+    layerViewPort center size
         |> List.map
             (\row ->
                 row
@@ -344,3 +376,6 @@ getNodesByViewPort ( origin, size ) layer =
                             ( loc, Dict.get loc layer )
                         )
             )
+        |> ViewPort center
+
+
