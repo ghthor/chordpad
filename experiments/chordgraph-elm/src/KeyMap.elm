@@ -199,8 +199,7 @@ type Key
 
 
 type GraphNode
-    = NodeOutput OutputValue
-    | Layout Keys
+    = Layout Keys
 
 
 type alias GraphLayer =
@@ -273,6 +272,31 @@ getNodeAt loc path layer =
 
         dir :: path ->
             getNodeAt (moveBy dir loc) path layer
+
+
+getLayerByInputs : Coord -> UserInputs -> GraphLayer -> GraphLayer
+getLayerByInputs loc inputs layer =
+    case inputs of
+        [] ->
+            layer
+
+        (Move dir) :: inputs ->
+            getLayerByInputs (moveBy dir loc) inputs layer
+
+        (Press key) :: inputs ->
+            case Dict.get loc layer of
+                Just node ->
+                    case node of
+                        Layout keys ->
+                            case Dict.get (keyInputIndex key) keys of
+                                Just (Path _ layer) ->
+                                    getLayerByInputs origin inputs layer
+
+                                _ ->
+                                    layer
+
+                Nothing ->
+                    layer
 
 
 layerViewPort : Coord -> ViewPortSize -> List (List Coord)

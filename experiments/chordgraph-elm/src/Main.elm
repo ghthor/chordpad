@@ -131,7 +131,7 @@ type alias Model =
 init : ( Model, Cmd Msg )
 init =
     ( { keyCodes = Set.empty
-      , root = generateLayerUsingCharCounts corpusDefault.chars
+      , root = LayoutGen.generateLayerUsingWordHeads corpusDefault.all
       , inputs = []
       , mode = Edit EditCorpus
       , rawCorpus = rawCorpusDefault
@@ -276,7 +276,7 @@ updateCorpus str model =
         ( { model
             | rawCorpus = str
             , corpus = corpus
-            , root = LayoutGen.generateLayerUsingCharCounts corpus.chars
+            , root = LayoutGen.generateLayerUsingWordHeads corpus.all
           }
         , Cmd.none
         )
@@ -353,7 +353,9 @@ subscriptions model =
 viewGraphLayerRoot : Model -> Html Msg
 viewGraphLayerRoot model =
     div [ class "key-map-root" ]
-        (viewGraphLayer model.inputs model.root)
+        (viewGraphLayer model.inputs <|
+            getLayerByInputs origin model.inputs model.root
+        )
 
 
 viewGraphLayer : UserInputs -> GraphLayer -> List (Html Msg)
@@ -400,9 +402,6 @@ viewGraphNode ( origin, inputs ) node =
                 ((text (toString loc))
                     :: (viewKeys inputs layout)
                 )
-
-        ( loc, NodeOutput output ) ->
-            div [ class "graph-node" ] [ text (toString loc), text "TODO: Output Node" ]
 
 
 type alias KeyView =
