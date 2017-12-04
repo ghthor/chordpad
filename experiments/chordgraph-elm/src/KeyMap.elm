@@ -81,6 +81,16 @@ handIndex hand =
             1
 
 
+handFromIndex : Int -> Hand
+handFromIndex index =
+    case index of
+        0 ->
+            L
+
+        _ ->
+            R
+
+
 type Finger
     = Index
     | Middle
@@ -104,6 +114,22 @@ fingerIndex finger =
             3
 
 
+fingerFromIndex : Int -> Finger
+fingerFromIndex index =
+    case index of
+        0 ->
+            Index
+
+        1 ->
+            Middle
+
+        2 ->
+            Ring
+
+        _ ->
+            Pinky
+
+
 type alias KeyInput =
     ( Hand, Finger )
 
@@ -115,6 +141,11 @@ type alias KeyInputIndex =
 keyInputIndex : KeyInput -> KeyInputIndex
 keyInputIndex ( hand, finger ) =
     ( handIndex hand, fingerIndex finger )
+
+
+keyInputForIndex : KeyInputIndex -> KeyInput
+keyInputForIndex ( hand, finger ) =
+    ( handFromIndex hand, fingerFromIndex finger )
 
 
 type UserInput
