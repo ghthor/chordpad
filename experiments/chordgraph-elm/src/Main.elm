@@ -382,22 +382,6 @@ viewGraphNodeLocation user node =
             div [ class "graph-node" ] [ text (toString loc), text "TODO: Empty Location" ]
 
 
-graphNodeTransformScale : Coord -> Coord -> Float
-graphNodeTransformScale origin loc =
-    case dist origin loc of
-        0 ->
-            1.0
-
-        1 ->
-            0.7
-
-        2 ->
-            0.5
-
-        _ ->
-            0.2
-
-
 viewGraphNode : ( Coord, InputPath ) -> ( Coord, GraphNode ) -> Html Msg
 viewGraphNode ( origin, inputs ) node =
     case node of
