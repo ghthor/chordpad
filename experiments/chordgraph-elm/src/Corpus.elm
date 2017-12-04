@@ -190,6 +190,18 @@ new src =
         }
 
 
+toWordHeads : WordTails -> WordHeads
+toWordHeads tails =
+    tails
+        |> Dict.values
+        |> List.map
+            (\word ->
+                List.repeat word.count word.tail
+            )
+        |> List.concat
+        |> newWordHeads
+
+
 viewCharCount : CharCount -> Html never
 viewCharCount chars =
     ol []
@@ -201,15 +213,22 @@ viewCharCount chars =
         )
 
 
-viewWordHeads : WordHeads -> Html never
-viewWordHeads words =
+viewWordHeads : Int -> WordHeads -> Html never
+viewWordHeads depth words =
     ol []
         (toSortedHeads words
             |> List.map
                 (\word ->
                     li []
                         [ text <| toString ( word.head, word.count )
-                        , viewWordTails word.tails
+                        , case depth of
+                            0 ->
+                                viewWordTails word.tails
+
+                            _ ->
+                                word.tails
+                                    |> toWordHeads
+                                    |> viewWordHeads (depth - 1)
                         ]
                 )
         )
@@ -235,22 +254,22 @@ view corpus =
             ]
         , div [ class "corpus-lower" ]
             [ h1 [] [ text "Lower Case" ]
-            , viewWordHeads corpus.lowerCase
+            , viewWordHeads 2 corpus.lowerCase
             ]
         , div [ class "corpus-upper" ]
             [ h1 [] [ text "Upper Case" ]
-            , viewWordHeads corpus.upperCase
+            , viewWordHeads 2 corpus.upperCase
             ]
         , div [ class "corpus-digits" ]
             [ h1 [] [ text "Digit's" ]
-            , viewWordHeads corpus.digits
+            , viewWordHeads 2 corpus.digits
             ]
         , div [ class "corpus-symbols" ]
             [ h1 [] [ text "Symbol's" ]
-            , viewWordHeads corpus.symbols
+            , viewWordHeads 2 corpus.symbols
             ]
         , div [ class "corpus-all" ]
             [ h1 [] [ text "All Entries" ]
-            , viewWordHeads corpus.all
+            , viewWordHeads 0 corpus.all
             ]
         ]
