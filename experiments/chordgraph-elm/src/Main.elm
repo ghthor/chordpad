@@ -172,7 +172,7 @@ type Msg
 
 updateCharBinding : String -> Msg
 updateCharBinding str =
-    UpdateGraph (UpdateBinding (Char str))
+    UpdateGraph <| UpdateBinding <| OutputString str
 
 
 updateKeyDown : Keyboard.KeyCode -> Model -> ( Model, Cmd Msg )
@@ -415,11 +415,34 @@ type alias KeyView =
 keyLabel : Keys -> KeyInput -> String
 keyLabel layout key =
     case Dict.get (keyInputIndex key) layout of
-        Just (KeyOutput (Char str)) ->
+        Just key ->
+            labelForKey key
+
+        Nothing ->
+            ""
+
+
+labelForKey : Key -> String
+labelForKey key =
+    case key of
+        KeyOutput value ->
+            labelForOutputValue value
+
+        Path outputValue _ ->
+            labelForOutputValue outputValue
+
+
+labelForOutputValue : OutputValue -> String
+labelForOutputValue value =
+    case value of
+        OutputString str ->
             str
 
-        _ ->
-            "+"
+        OutputChar ch ->
+            String.fromChar ch
+
+        Unassigned ->
+            ""
 
 
 viewKeys : UserInputs -> Keys -> List (Html Msg)
@@ -460,8 +483,11 @@ viewBindingDialog output =
     let
         currentValue =
             case output of
-                Char str ->
+                OutputString str ->
                     str
+
+                OutputChar ch ->
+                    String.fromChar ch
 
                 _ ->
                     ""

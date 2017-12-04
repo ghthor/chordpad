@@ -185,7 +185,8 @@ keyInputExistsIn path key =
 
 type OutputValue
     = Unassigned
-    | Char String
+    | OutputChar Char
+    | OutputString String
 
 
 type alias Keys =

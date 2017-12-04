@@ -3,7 +3,6 @@ module LayoutGen exposing (..)
 import KeyMap exposing (..)
 import Corpus
 import Dict
-import Char
 
 
 type Cell
@@ -16,7 +15,7 @@ generateLayerUsingCharCounts chars =
         |> Corpus.toSortedCharCount
         |> List.map
             (\( char, count ) ->
-                Char <| String.fromChar char
+                OutputChar <| char
             )
         |> createLayerWithOutputs
 
