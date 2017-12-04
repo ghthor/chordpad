@@ -417,26 +417,25 @@ keyLabel layout key =
             "+"
 
 
-toKeyView : InputPath -> Keys -> KeyInput -> KeyView
-toKeyView inputs layout key =
-    -- FIXME Use Existing OutputValue instead of Unassigned in openEdit msg
-    { down = keyInputExistsIn inputs key
-    , openEdit = OpenEditor (EditKeyBinding ( List.append inputs [ Press key ], Unassigned ))
-    , label = keyLabel layout key
-    }
-
-
 viewKeys : InputPath -> Keys -> List (Html Msg)
 viewKeys inputs layout =
-    [ div [ class "left-hand" ]
-        (List.map (toKeyView inputs layout) leftHand
-            |> List.map viewKey
-        )
-    , div [ class "right-hand" ]
-        (List.map (toKeyView inputs layout) rightHand
-            |> List.map viewKey
-        )
-    ]
+    [ ( leftHand, "left-hand" ), ( rightHand, "right-hand" ) ]
+        |> (List.map
+                (\( hand, handView ) ->
+                    div [ class handView ]
+                        (hand
+                            |> List.map
+                                (\key ->
+                                    (viewKey
+                                        { down = keyInputExistsIn inputs key
+                                        , openEdit = NoOp
+                                        , label = keyLabel layout key
+                                        }
+                                    )
+                                )
+                        )
+                )
+           )
 
 
 viewKey : KeyView -> Html Msg
