@@ -2,6 +2,7 @@ module Corpus exposing (..)
 
 import Dict
 import Char
+import Regex
 import Html
     exposing
         ( Html
@@ -53,6 +54,21 @@ type alias Corpus =
     , digits : WordHeads
     , symbols : WordHeads
     }
+
+
+words : String -> List String
+words src =
+    String.words src
+        |> List.map (String.split ".")
+        |> List.concat
+        |> List.map camelCaseWords
+        |> List.concat
+
+
+camelCaseWords : String -> List String
+camelCaseWords src =
+    -- Regex.split Regex.All (Regex.regex "(?<!^)(?=[A-Z])") src
+    Regex.split Regex.All (Regex.regex "(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])") src
 
 
 newWordHeads : List String -> WordHeads
@@ -171,7 +187,7 @@ new : String -> Corpus
 new src =
     let
         allWords =
-            newWordHeads <| String.words <| src
+            newWordHeads <| words <| src
     in
         { chars = newCharCount src
         , all = allWords
