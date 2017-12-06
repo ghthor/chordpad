@@ -565,12 +565,12 @@ view model =
     div [ id "app" ] <|
         case model.mode of
             Normal ->
-                [ viewGraphLayerRoot model
+                [ div [ class "output-terminal" ] [ text <| outputToString <| getOutputForInputs origin model.inputs model.root ]
+                , viewGraphLayerRoot model
                 , div
                     [ class "control-panel" ]
                     [ button [ onClick <| OpenEditor <| EditCorpus ]
                         [ text "Open Editor" ]
-                    , div [] [ text <| outputToString <| getOutputForInputs origin model.inputs model.root ]
                     ]
                 ]
 
