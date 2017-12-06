@@ -1,4 +1,4 @@
-html, body, #root, #root > #app, #root .key-map-root {
+html, body, #root, #root > #app {
   margin: 0;
   padding: 0;
   width: 100%;
@@ -19,10 +19,36 @@ body {
   align-items: stretch;
 }
 
+#app {
+  backface-visibility: visible;
+  transform-style: preserve-3d;
+}
+
 .output-terminal {
-    position: absolute;
-    top: 0;
-    width: 100%;
+  display: flex;
+  flex-grow: 0;
+  flex-shrink: 1;
+  
+  min-height: 40px;
+  width: 100%;
+  font-family: monospace;
+}
+
+.key-map-root {
+  display: flex;
+  flex-grow: 1;
+  flex-shrink: 0;
+  
+  flex-direction: column;
+  flex-wrap: nowrap;
+  justify-content: center;
+  align-content: center;
+  align-items: center;
+
+  transform: rotateX(50deg) skewX(-40deg);
+
+  backface-visibility: visible;
+  transform-style: preserve-3d;
 }
 
 .control-panel {
@@ -31,14 +57,6 @@ body {
   width: 100%;
 }
 
-.key-map-root {
-  display: flex;
-  flex-direction: column;
-  flex-wrap: nowrap;
-  justify-content: center;
-  align-content: center;
-  align-items: center;
-}
 
 .key-map-binding-dialog {
   background-color: #987284;
@@ -77,10 +95,11 @@ body {
   justify-content: center;
   align-content: center;
   align-items: center;
+
+  transform: rotateX(-90deg);
 }
 
 .graph-node {
-  min-width: 540px;
 
   display: flex;
   flex-direction: row;
@@ -93,7 +112,7 @@ body {
 }
 
 .key-layout {
-  background-color: #987284;
+  border: 1px solid grey;
 }
 
 .key-layout .left-hand {
@@ -112,6 +131,8 @@ body {
   flex-grow: 1;
   flex-shrink: 0;
 
+  margin-left: 20px;
+
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
@@ -121,25 +142,17 @@ body {
 }
 
 .key-box {
-  background-color: #181e1b;
-  border-color: #75b9be #60989c;
   color: #cfdbd5;
-
-  border-width: 3px;
-  border-radius: 5px;
-
-  min-width: 50px;
-  min-height: 50px;
 
   font-size: 20px;
   font-family: monospace;
   margin: 5px;
-  padding: 10px;
+
+  border: 1px solid white;
+  padding: 5px;
 }
 
 .key-down {
   background-color: red;
   color: red;
-
-  border-color: #60989c #75b9be;
 }

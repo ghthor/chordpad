@@ -483,7 +483,7 @@ viewKeys inputs layout =
 
 viewKey : KeyView -> Html Msg
 viewKey { down, openEdit, label } =
-    button
+    div
         [ classList
             [ ( "key-box", True )
             , ( "key-down", down )
