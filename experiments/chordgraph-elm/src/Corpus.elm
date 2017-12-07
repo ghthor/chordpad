@@ -67,6 +67,7 @@ words src =
 
 camelCaseWords : String -> List String
 camelCaseWords src =
+    -- https://stackoverflow.com/questions/7593969/regex-to-split-camelcase-or-titlecase-advanced
     -- Regex.split Regex.All (Regex.regex "(?<!^)(?=[A-Z])") src
     Regex.split Regex.All (Regex.regex "(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])") src
 
