@@ -100,6 +100,7 @@ body {
 }
 
 .graph-node {
+  min-width: 340px;
 
   display: flex;
   flex-direction: row;
@@ -109,6 +110,10 @@ body {
   align-items: center;
 
   padding: 10px;
+}
+
+.graph-node-center {
+  background-color: green;
 }
 
 .key-layout {

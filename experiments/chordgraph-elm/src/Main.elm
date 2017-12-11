@@ -412,6 +412,7 @@ viewGraphNode ( origin, inputs ) node =
             div
                 [ classList
                     [ ( "graph-node", True )
+                    , ( "graph-node-center", origin == loc )
                     , ( "key-layout", True )
                     ]
                 ]
