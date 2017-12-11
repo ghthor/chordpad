@@ -184,6 +184,32 @@ charIsSymbol c =
         && (not <| Char.isDigit c)
 
 
+charIsLowerOrSymbol : Char -> Bool
+charIsLowerOrSymbol c =
+    (Char.isLower c)
+        || (charIsSymbol c)
+
+
+toLowerCaseAndSymbolsSortedByCharCount : Corpus -> List WordHead
+toLowerCaseAndSymbolsSortedByCharCount { chars, all } =
+    Dict.toList chars
+        |> List.filter (\( char, _ ) -> charIsLowerOrSymbol char)
+        |> List.sortBy Tuple.second
+        |> List.reverse
+        |> List.map
+            (\( char, count ) ->
+                case Dict.get char all of
+                    Just word ->
+                        word
+
+                    Nothing ->
+                        { head = char
+                        , count = count
+                        , tails = Dict.empty
+                        }
+            )
+
+
 new : String -> Corpus
 new src =
     let

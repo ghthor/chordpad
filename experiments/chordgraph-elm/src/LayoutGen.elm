@@ -5,8 +5,8 @@ import Corpus
 import Dict
 
 
-keyInputsSortedByPriority : List KeyInput
-keyInputsSortedByPriority =
+standardKeyPriority : List KeyInput
+standardKeyPriority =
     [ ( R, Index )
     , ( L, Index )
     , ( R, Middle )
@@ -18,16 +18,57 @@ keyInputsSortedByPriority =
     ]
 
 
+digitKeyPriority : List KeyInput
+digitKeyPriority =
+    [ ( L, Pinky )
+    , ( L, Ring )
+    , ( L, Middle )
+    , ( L, Index )
+    , ( R, Index )
+    , ( R, Middle )
+    , ( R, Ring )
+    , ( R, Pinky )
+    ]
+
+
+standardNodePriority : List Coord
+standardNodePriority =
+    [ origin
+    , ( -1, 0 )
+    , ( 1, 0 )
+    , ( 0, -1 )
+    , ( -2, 0 )
+    , ( 2, 0 )
+    , ( 0, -2 )
+    , ( -2, -1 )
+    , ( 2, -1 )
+    ]
+
+
+digitLayout : List Char -> Keys
+digitLayout chars =
+    List.map (\c -> OutputDigit c) chars
+        |> List.map2 (,) digitKeyPriority
+        |> List.foldl
+            (\( key, output ) keys ->
+                Dict.insert (keyInputIndex key) (KeyOutput output) keys
+            )
+            Dict.empty
+
+
+lowerDigits : Keys
+lowerDigits =
+    digitLayout [ '0', '1', '2', '3', '4', '5', '6', '7' ]
+
+
+upperDigits : Keys
+upperDigits =
+    digitLayout [ '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' ]
+
+
 matchingKeyInput : KeyInput -> KeyInput -> Bool
 matchingKeyInput a b =
     (keyInputIndex a) == (keyInputIndex b)
-
-
-generateLayerUsingWordHeads : Corpus.WordHeads -> GraphLayer
-generateLayerUsingWordHeads words =
-    words
-        |> Corpus.toSortedHeads
-        |> generateLayerForWordHeads keyInputsSortedByPriority
 
 
 partitionWordHeads : Int -> List Corpus.WordHead -> List (List Corpus.WordHead) -> List (List Corpus.WordHead)
@@ -40,19 +81,23 @@ partitionWordHeads size words parts =
             List.take size words :: partitionWordHeads size (List.drop size words) parts
 
 
-generateLayerForWordHeads : List KeyInput -> List Corpus.WordHead -> GraphLayer
-generateLayerForWordHeads availableKeys words =
+generateRootLayouts : List Corpus.WordHead -> List Keys
+generateRootLayouts =
+    generateLayouts standardKeyPriority
+
+
+generateLayouts : List KeyInput -> List Corpus.WordHead -> List Keys
+generateLayouts availableKeys words =
     let
         headsPerLayout =
             List.length availableKeys
     in
         partitionWordHeads headsPerLayout words []
-            |> List.map (generateLayoutForWordHeads availableKeys)
-            |> generateLayerFromLayouts
+            |> List.map (generateLayout availableKeys)
 
 
-generateLayoutForWordHeads : List KeyInput -> List Corpus.WordHead -> Keys
-generateLayoutForWordHeads availableKeys words =
+generateLayout : List KeyInput -> List Corpus.WordHead -> Keys
+generateLayout availableKeys words =
     case availableKeys of
         [ input ] ->
             List.map2 (,) availableKeys words
@@ -79,7 +124,8 @@ generateLayoutForWordHeads availableKeys words =
                             , word.tails
                                 |> Corpus.toWordHeads
                                 |> Corpus.toSortedHeads
-                                |> generateLayerForWordHeads remainingKeys
+                                |> generateLayouts remainingKeys
+                                |> generateLayer standardNodePriority
                                 |> Path (OutputChar word.head)
                             )
                     )
@@ -90,24 +136,43 @@ generateLayoutForWordHeads availableKeys words =
                     Dict.empty
 
 
-generateLayerFromLayouts : List Keys -> GraphLayer
-generateLayerFromLayouts layouts =
-    List.map2 (,)
-        [ origin
-        , moveBy W origin
-        , moveBy E origin
-        , moveBy S origin
-        , moveBy N origin
-        , moveList [ W, S ] origin
-        , moveList [ W, N ] origin
-        , moveList [ E, S ] origin
-        , moveList [ E, N ] origin
-        , moveList [ S, S ] origin
-        , moveList [ N, N ] origin
-        ]
-        layouts
+generateLayer : List Coord -> List Keys -> GraphLayer
+generateLayer locations layouts =
+    insertLayouts locations layouts Dict.empty
+
+
+insertLayouts : List Coord -> List Keys -> GraphLayer -> GraphLayer
+insertLayouts locations layouts layer =
+    List.map2 (,) locations layouts
         |> List.foldl
             (\( loc, layout ) layer ->
                 Dict.insert loc (Layout layout) layer
             )
-            Dict.empty
+            layer
+
+
+generateRootLayer : Corpus.Corpus -> GraphLayer
+generateRootLayer corpus =
+    Dict.empty
+        |> insertDigitLayers
+        |> insertLowerCaseAndSymbols corpus
+
+
+insertDigitLayers : GraphLayer -> GraphLayer
+insertDigitLayers layer =
+    [ ( ( 0, 1 ), lowerDigits )
+    , ( ( 1, 1 ), upperDigits )
+    ]
+        |> List.foldl
+            (\( loc, keys ) layer ->
+                Dict.insert loc (Layout keys) layer
+            )
+            layer
+
+
+insertLowerCaseAndSymbols : Corpus.Corpus -> GraphLayer -> GraphLayer
+insertLowerCaseAndSymbols corpus layer =
+    corpus
+        |> Corpus.toLowerCaseAndSymbolsSortedByCharCount
+        |> generateRootLayouts
+        |> (\layouts -> insertLayouts standardNodePriority layouts layer)

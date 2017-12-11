@@ -186,6 +186,7 @@ keyInputExistsIn path key =
 type OutputValue
     = Unassigned
     | OutputChar Char
+    | OutputDigit Char
     | OutputString String
 
 
@@ -200,6 +201,9 @@ outputToString outputs =
             (\value ->
                 case value of
                     OutputChar char ->
+                        Just <| String.fromChar char
+
+                    OutputDigit char ->
                         Just <| String.fromChar char
 
                     OutputString str ->

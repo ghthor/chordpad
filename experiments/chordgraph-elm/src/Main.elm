@@ -143,7 +143,7 @@ type alias Model =
 init : ( Model, Cmd Msg )
 init =
     ( { keyCodes = Set.empty
-      , root = LayoutGen.generateLayerUsingWordHeads corpusDefault.all
+      , root = LayoutGen.generateRootLayer corpusDefault
       , inputs = []
       , mode = Edit EditCorpus
       , rawCorpus = rawCorpusDefault
@@ -294,7 +294,7 @@ updateCorpus str model =
         ( { model
             | rawCorpus = str
             , corpus = corpus
-            , root = LayoutGen.generateLayerUsingWordHeads corpus.all
+            , root = LayoutGen.generateRootLayer corpus
           }
         , Cmd.none
         )
@@ -453,6 +453,9 @@ labelForOutputValue value =
     case value of
         OutputString str ->
             str
+
+        OutputDigit ch ->
+            String.fromChar ch
 
         OutputChar ch ->
             String.fromChar ch
