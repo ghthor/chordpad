@@ -121,12 +121,7 @@ generateLayout availableKeys words =
                                 List.filter (matchingKeyInput input >> not) availableKeys
                         in
                             ( input
-                            , word.tails
-                                |> Corpus.toWordHeads
-                                |> Corpus.toSortedHeads
-                                |> generateLayouts remainingKeys
-                                |> generateLayer standardNodePriority
-                                |> Path (OutputChar word.head)
+                            , generateKeyWithTails remainingKeys word
                             )
                     )
                 |> List.foldl
@@ -134,6 +129,19 @@ generateLayout availableKeys words =
                         Dict.insert (keyInputIndex input) key keys
                     )
                     Dict.empty
+
+
+generateKeyWithTails : List KeyInput -> Corpus.WordHead -> Key
+generateKeyWithTails availableKeys word =
+    case word.tails |> Corpus.toWordHeads |> Corpus.toSortedHeads of
+        [] ->
+            KeyOutput <| OutputChar word.head
+
+        tails ->
+            tails
+                |> generateLayouts availableKeys
+                |> generateLayer standardNodePriority
+                |> Path (OutputChar word.head)
 
 
 generateLayer : List Coord -> List Keys -> GraphLayer
