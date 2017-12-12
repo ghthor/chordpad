@@ -20,8 +20,6 @@ body {
 }
 
 #app {
-  backface-visibility: visible;
-  transform-style: preserve-3d;
 }
 
 .output-terminal {
@@ -44,11 +42,6 @@ body {
   justify-content: center;
   align-content: center;
   align-items: center;
-
-  transform: rotateX(50deg) skewX(-40deg);
-
-  backface-visibility: visible;
-  transform-style: preserve-3d;
 }
 
 .control-panel {
@@ -56,7 +49,6 @@ body {
   bottom: 0;
   width: 100%;
 }
-
 
 .key-map-binding-dialog {
   background-color: #987284;
@@ -95,8 +87,6 @@ body {
   justify-content: center;
   align-content: center;
   align-items: center;
-
-  transform: rotateX(-90deg);
 }
 
 .graph-node {
