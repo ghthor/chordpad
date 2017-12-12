@@ -98,37 +98,34 @@ generateLayouts availableKeys words =
 
 generateLayout : List KeyInput -> List Corpus.WordHead -> Keys
 generateLayout availableKeys words =
+    List.map2 (,) availableKeys words
+        |> List.map (generateKey availableKeys)
+        |> List.foldl
+            (\( input, key ) keys ->
+                Dict.insert (keyInputIndex input) key keys
+            )
+            Dict.empty
+
+
+generateKey : List KeyInput -> ( KeyInput, Corpus.WordHead ) -> ( KeyInput, Key )
+generateKey availableKeys =
     case availableKeys of
         [ input ] ->
-            List.map2 (,) availableKeys words
-                |> List.map
-                    (\( input, word ) ->
-                        -- TODO OutputString the whole Tail
-                        ( input, KeyOutput <| OutputChar word.head )
-                    )
-                |> List.foldl
-                    (\( input, key ) keys ->
-                        Dict.insert (keyInputIndex input) key keys
-                    )
-                    Dict.empty
+            (\( input, word ) ->
+                -- TODO OutputString the whole Tail
+                ( input, KeyOutput <| OutputChar word.head )
+            )
 
         _ ->
-            List.map2 (,) availableKeys words
-                |> List.map
-                    (\( input, word ) ->
-                        let
-                            remainingKeys =
-                                List.filter (matchingKeyInput input >> not) availableKeys
-                        in
-                            ( input
-                            , generateKeyWithTails remainingKeys word
-                            )
+            (\( input, word ) ->
+                let
+                    remainingKeys =
+                        List.filter (matchingKeyInput input >> not) availableKeys
+                in
+                    ( input
+                    , generateKeyWithTails remainingKeys word
                     )
-                |> List.foldl
-                    (\( input, key ) keys ->
-                        Dict.insert (keyInputIndex input) key keys
-                    )
-                    Dict.empty
+            )
 
 
 generateKeyWithTails : List KeyInput -> Corpus.WordHead -> Key
