@@ -458,10 +458,26 @@ labelForOutputValue value =
             String.fromChar ch
 
         OutputChar ch ->
-            String.fromChar ch
+            labelForChar ch
 
         Unassigned ->
             ""
+
+
+labelForChar : Char -> String
+labelForChar char =
+    case char of
+        '\t' ->
+            "\\t"
+
+        '\n' ->
+            "\\n"
+
+        ' ' ->
+            "sp"
+
+        _ ->
+            String.fromChar char
 
 
 viewKeys : UserInputs -> Keys -> List (Html Msg)
